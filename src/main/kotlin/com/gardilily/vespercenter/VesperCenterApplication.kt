@@ -7,10 +7,13 @@
 
 package com.gardilily.vespercenter
 
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
+import org.springframework.transaction.annotation.EnableTransactionManagement
 
 @SpringBootApplication
+@EnableTransactionManagement
 class VesperCenterApplication
 
 fun main(args: Array<String>) {

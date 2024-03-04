@@ -1,1 +1,32 @@
 
+vesper-center:
+  system:
+    version-name: 1.0.0
+    version-code: 1
+    build-time: 2023-05-16T15:38+08:00
+
+spring:
+  datasource:
+    url: jdbc:mariadb://localhost:3306/vesper-center
+    username: flowerblack
+    password: 123456
+
+  servlet:
+    multipart:
+      max-file-size: 32MB
+      max-request-size: 32MB
+
+  output:
+    ansi:
+      enabled: ALWAYS
+
+server:
+  # vesper center 运行的端口
+  port: 9000
+  error:
+    whilelabel:
+      enable: true
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true

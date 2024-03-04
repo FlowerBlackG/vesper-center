@@ -25,3 +25,7 @@ Wayland 图形合成器 & 窗口管理；VNC 远程桌面服务器。
 用户的操作界面。
 
 [https://github.com/FlowerBlackG/vesper-front](https://github.com/FlowerBlackG/vesper-front)
+
+## 使用手册
+
+[系统手册](./doc/system-manual.md)

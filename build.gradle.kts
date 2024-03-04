@@ -45,6 +45,9 @@ dependencies {
 	// https://mvnrepository.com/artifact/org.jetbrains.kotlin/kotlin-stdlib
 	implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.22")
 
+	implementation("com.baomidou:mybatis-plus-boot-starter:3.5.5")
+
+	implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
 }
 
