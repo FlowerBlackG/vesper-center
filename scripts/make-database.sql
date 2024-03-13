@@ -72,6 +72,8 @@ create table permission_grant
 
 
 /*
+    配置权限表。
+
     权限定义模板：
 
     insert ignore into permission_group (id, fullname, note)
@@ -90,3 +92,26 @@ insert ignore into permission_group (id, fullname, note)
 insert ignore into permission_group (id, fullname, note)
     values (100, '登录到任意用户的环境', '');
 
+
+/*
+    创建超级用户。
+*/
+
+set @target_id := 1;
+
+/* 备注：管理员密码是 mf98hhB8Dzo3AtZ7C */
+
+insert ignore into user (
+    id, username, passwd, create_time, last_login_time
+) values (
+    @target_id, '卡皮吧啦', 'e4d0ef219636a103733c591ea0f708ca', now(), null
+);
+
+/* 赋权。 */
+
+insert ignore into permission_grant (user_id, permission_id) values (@target_id, 1);
+insert ignore into permission_grant (user_id, permission_id) values (@target_id, 20);
+insert ignore into permission_grant (user_id, permission_id) values (@target_id, 50);
+insert ignore into permission_grant (user_id, permission_id) values (@target_id, 100);
+
+set @target_id := null;

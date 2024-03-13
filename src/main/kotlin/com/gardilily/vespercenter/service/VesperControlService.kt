@@ -21,23 +21,20 @@ import java.nio.file.Path
 
 @Service
 class VesperControlService @Autowired constructor(
-
+    val vesperProtocolService: VesperProtocolService
 ) {
-
 
     fun testConn() {
 
         val socketPath = Path.of("/run/user/1000/vesper.sock")
-        val address = UnixDomainSocketAddress.of(socketPath)
+        val ter = VesperControlProtocols.TerminateVesper()
+        val res = vesperProtocolService.send(ter, socketPath) as VesperControlProtocols.Response?
 
-        SocketChannel.open(StandardProtocolFamily.UNIX).use { sc ->
-            sc.connect(address)
+        val x = 1
 
-            val ter = VesperControlProtocols.TerminateVesper()
-
-            sc.write(ByteBuffer.wrap(ter.toByteArray()))
-        }
+        println("rescode: ${res?.code}, msg is: |${res?.msg}|")
 
     }
+
 
 }

@@ -12,6 +12,7 @@ import java.nio.ByteBuffer
 
 
 open class VesperProtocol {
+
     companion object {
         const val MAGIC_STR = "...."
         const val typeCode = 0x0000u
@@ -34,6 +35,7 @@ open class VesperProtocol {
                 }
 
                 VesperControlProtocols.Base.MAGIC_STR -> when (type) {
+                    VesperControlProtocols.Response.typeCode -> VesperControlProtocols.Response()
                     else -> {
                         Logger.warning("protocol decode", "type $type is unknown!")
                         return null
@@ -104,5 +106,6 @@ open class VesperProtocol {
     protected open fun encodeBody(container: ArrayList<Byte>) {
         throw RuntimeException("base method called!")
     }
+
 } // open class VesperProtocol
 

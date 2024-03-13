@@ -157,9 +157,6 @@ class UserController @Autowired constructor(
         httpSession: HttpSession
     ): IResponse<Int> {
 
-
-
-
         // 输入参数非空校验。
         val uname = requestBody["uname"] as String? ?: return IResponse.error(msg = "需要用户名", code = HttpStatus.BAD_REQUEST)
         val password = requestBody["password"] as String? ?: return IResponse.error(msg = "需要密码。", code = HttpStatus.BAD_REQUEST)
@@ -389,4 +386,9 @@ class UserController @Autowired constructor(
 
     } // fun grantPermission
 
+
+    @GetMapping("testMd5")
+    fun testMd5(@RequestParam pw: String, @RequestParam uid: Long): IResponse<String> {
+        return IResponse.ok(pw.toMd5Password(uid))
+    }
 }

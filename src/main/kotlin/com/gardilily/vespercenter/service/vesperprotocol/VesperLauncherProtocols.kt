@@ -32,6 +32,7 @@ class VesperLauncherProtocols private constructor() {
 
         override val bodyLength get() = (UInt.SIZE_BYTES * 2 + msg.length).toULong()
 
+        var code = 0
         var msg = ""
 
         override fun decodeBody(data: ByteBuffer): Int {
@@ -41,7 +42,7 @@ class VesperLauncherProtocols private constructor() {
                 return 1
             }
 
-            val code = data.getInt()
+            code = data.getInt()
             val msgLen = data.getInt()
 
             if (data.remaining() < msgLen) {

@@ -9,12 +9,11 @@ package com.gardilily.vespercenter.service.vesperprotocol
 
 import com.gardilily.vespercenter.common.Logger
 import java.nio.ByteBuffer
-import kotlin.time.times
 
 class VesperControlProtocols private constructor() {
     open class Base : VesperProtocol() {
         companion object {
-            const val MAGIC_STR = "WdtJ"
+            const val MAGIC_STR = "KpBL"
             const val typeCode = VesperProtocol.typeCode
         }
 
@@ -31,6 +30,7 @@ class VesperControlProtocols private constructor() {
 
         override val bodyLength get() = (UInt.SIZE_BYTES * 2 + msg.length).toULong()
 
+        var code = 0
         var msg = ""
 
         override fun decodeBody(data: ByteBuffer): Int {
@@ -40,7 +40,7 @@ class VesperControlProtocols private constructor() {
                 return 1
             }
 
-            val code = data.getInt()
+            code = data.getInt()
             val msgLen = data.getInt()
 
             if (data.remaining() < msgLen) {
