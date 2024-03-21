@@ -3,6 +3,7 @@
 
 package com.gardilily.vespercenter.config
 
+import com.gardilily.vespercenter.common.SessionManager
 import com.gardilily.vespercenter.utils.IEnumConvertFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Configuration
@@ -22,9 +23,10 @@ class WebConfig @Autowired constructor(
                 "http://localhost:3000",
                 "https://vesper-front.gardilily.com",
                 "http://localhost:13287")
-            .allowCredentials(true)
+            .allowCredentials(false)
             .allowedMethods("*")
             .allowedHeaders("*")
+            .exposedHeaders(SessionManager.HTTP_HEADER_KEY)
             .maxAge(3600)
     }
 

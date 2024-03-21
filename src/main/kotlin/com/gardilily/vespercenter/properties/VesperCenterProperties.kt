@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component
  * Vesper Center 软件系统通用参数定义。
  */
 @Component
-class VesperCenterSystemProperties @Autowired constructor(
+class VesperCenterProperties @Autowired constructor(
     environment: Environment
 ) {
 
@@ -20,4 +20,16 @@ class VesperCenterSystemProperties @Autowired constructor(
     val systemVersionCode = environment.getProperty("vesper-center.system.version-code")!!.toLong()
     val systemVersionName = environment.getProperty("vesper-center.system.version-name")!!
     val systemBuildTime = environment.getProperty("vesper-center.system.build-time")!!
+
+    val sessionTokenExpireMilliseconds = environment.getProperty("vesper-center.session.token-expire-milliseconds")?.toLong() ?: 3600000
+    val sessionTicketLockerFileDumpPath = run {
+        val f = environment.getProperty("vesper-center.session.ticket-locker-file.dump-path") ?: "none"
+        return@run if (f == "none") {
+            null
+        } else {
+            f
+        }
+    }
+
+    val sessionTicketLockerFileDumpKey = environment.getProperty("vesper-center.session.ticket-locker-file.dump-key")
 }

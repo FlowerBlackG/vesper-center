@@ -7,7 +7,7 @@
 
 package com.gardilily.vespercenter.service.vesperprotocol
 
-import com.gardilily.vespercenter.common.Logger
+import com.gardilily.vespercenter.utils.Slf4k.Companion.log
 import java.nio.ByteBuffer
 
 
@@ -29,7 +29,7 @@ open class VesperProtocol {
                 VesperLauncherProtocols.Base.MAGIC_STR -> when (type) {
                     VesperLauncherProtocols.Response.typeCode -> VesperLauncherProtocols.Response()
                     else -> {
-                        Logger.warning("protocol decode", "type $type is unknown!")
+                        log.warn("type $type is unknown!")
                         return null
                     }
                 }
@@ -37,13 +37,13 @@ open class VesperProtocol {
                 VesperControlProtocols.Base.MAGIC_STR -> when (type) {
                     VesperControlProtocols.Response.typeCode -> VesperControlProtocols.Response()
                     else -> {
-                        Logger.warning("protocol decode", "type $type is unknown!")
+                        log.warn("type $type is unknown!")
                         return null
                     }
                 }
 
                 else -> {
-                    Logger.warning("protocol decode", "magic |$magic| is unknown!")
+                    log.warn("magic |$magic| is unknown!")
                     return null
                 }
             }

@@ -49,6 +49,11 @@ dependencies {
 
 	implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
+
+	implementation("com.github.xiaoymin:knife4j-openapi3-jakarta-spring-boot-starter:4.4.0")
+
+	// https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-datetime
+	runtimeOnly("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
 }
 
 tasks.withType<KotlinCompile> {

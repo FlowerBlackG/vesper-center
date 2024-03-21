@@ -7,8 +7,11 @@
 
 package com.gardilily.vespercenter.service.vesperprotocol
 
-import com.gardilily.vespercenter.common.Logger
+import com.gardilily.vespercenter.utils.Slf4k
+import com.gardilily.vespercenter.utils.Slf4k.Companion.log
 import java.nio.ByteBuffer
+
+@Slf4k
 
 class VesperControlProtocols private constructor() {
     open class Base : VesperProtocol() {
@@ -36,7 +39,7 @@ class VesperControlProtocols private constructor() {
         override fun decodeBody(data: ByteBuffer): Int {
 
             if (data.remaining() < UInt.SIZE_BYTES * 2) {
-                Logger.warning("decode body", "length ${data.remaining()} is too few for body")
+                log.warn("length ${data.remaining()} is too few for body")
                 return 1
             }
 
@@ -44,7 +47,7 @@ class VesperControlProtocols private constructor() {
             val msgLen = data.getInt()
 
             if (data.remaining() < msgLen) {
-                Logger.warning("decode body", "length ${data.remaining()} is less than msg-len $msgLen")
+                log.warn("length ${data.remaining()} is less than msg-len $msgLen")
                 return 2
             }
 

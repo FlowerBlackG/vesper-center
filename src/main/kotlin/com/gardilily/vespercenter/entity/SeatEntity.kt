@@ -17,7 +17,13 @@ data class SeatEntity(
     @TableId(value = "id", type = IdType.AUTO)
     var id: Long? = null,
     var userId: Long? = null,
+    var groupId: Long? = null,
+    var creator: Long? = null,
     var enabled: Int? = null,
+    /** 主机名。 */
+    var nickname: String? = null,
+    /** 关于主机的注意事项。 */
+    var note: String? = null,
     var linuxUid: Int? = null,
     var linuxLoginName: String? = null,
     var linuxPasswdRaw: String? = null,

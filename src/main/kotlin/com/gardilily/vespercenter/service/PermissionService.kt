@@ -4,19 +4,21 @@
 package com.gardilily.vespercenter.service
 
 import com.baomidou.mybatisplus.extension.kotlin.KtQueryWrapper
-import com.gardilily.vespercenter.common.Logger
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl
 import com.gardilily.vespercenter.entity.PermissionGrantEntity
-import com.gardilily.vespercenter.entity.PermissionGroupEntity
+import com.gardilily.vespercenter.entity.PermissionEntity
 import com.gardilily.vespercenter.entity.UserEntity
 import com.gardilily.vespercenter.mapper.PermissionGrantMapper
+import com.gardilily.vespercenter.mapper.PermissionMapper
+import com.gardilily.vespercenter.utils.Slf4k
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 
 @Service
+@Slf4k
 class PermissionService @Autowired constructor(
-    val logger: Logger,
     val permissionGrantMapper: PermissionGrantMapper
-) {
+) : ServiceImpl<PermissionMapper, PermissionEntity>() {
     /**
      * 权限拒绝异常类。
      * 应在全局错误处理处捕获，并返回相应信息。
@@ -25,7 +27,7 @@ class PermissionService @Autowired constructor(
 
     fun ensurePermission(
         uid: Long,
-        permission: PermissionGroupEntity.PermissionGroup
+        permission: PermissionEntity.Permission
     ) {
         if (!checkPermission(uid, permission)) {
             throw PermissionDeniedException(permission.name)
@@ -34,14 +36,14 @@ class PermissionService @Autowired constructor(
 
     fun ensurePermission(
         entity: UserEntity,
-        permission: PermissionGroupEntity.PermissionGroup
+        permission: PermissionEntity.Permission
     ) {
         ensurePermission(entity.id!!, permission)
     }
 
     fun checkPermission(
         uid: Long,
-        permission: PermissionGroupEntity.PermissionGroup
+        permission: PermissionEntity.Permission
     ): Boolean {
         permissionGrantMapper.selectOne(
             KtQueryWrapper(PermissionGrantEntity::class.java)
@@ -54,7 +56,7 @@ class PermissionService @Autowired constructor(
 
     fun checkPermission(
         entity: UserEntity,
-        permission: PermissionGroupEntity.PermissionGroup
+        permission: PermissionEntity.Permission
     ) = checkPermission(entity.id!!, permission)
 
 }

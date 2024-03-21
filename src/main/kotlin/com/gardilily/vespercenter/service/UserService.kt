@@ -8,6 +8,10 @@
 
 package com.gardilily.vespercenter.service
 
+import com.baomidou.mybatisplus.extension.service.IService
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl
+import com.gardilily.vespercenter.entity.UserEntity
+import com.gardilily.vespercenter.mapper.UserMapper
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import org.springframework.util.DigestUtils
@@ -17,7 +21,7 @@ import org.springframework.util.DigestUtils
 @Service
 class UserService @Autowired constructor(
 
-) {
+) : ServiceImpl<UserMapper, UserEntity>() {
 
 
 }

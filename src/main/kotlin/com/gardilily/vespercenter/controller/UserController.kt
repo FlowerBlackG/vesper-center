@@ -10,19 +10,21 @@ package com.gardilily.vespercenter.controller
 
 import com.baomidou.mybatisplus.extension.kotlin.KtQueryWrapper
 import com.gardilily.vespercenter.common.MacroDefines
+import com.gardilily.vespercenter.common.SessionManager
 import com.gardilily.vespercenter.dto.IResponse
-import com.gardilily.vespercenter.entity.PermissionGrantEntity
-import com.gardilily.vespercenter.entity.PermissionGroupEntity
-import com.gardilily.vespercenter.entity.PermissionGroupEntity.PermissionGroup
-import com.gardilily.vespercenter.entity.UserEntity
+import com.gardilily.vespercenter.entity.*
+import com.gardilily.vespercenter.entity.PermissionEntity.Permission
 import com.gardilily.vespercenter.mapper.PermissionGrantMapper
-import com.gardilily.vespercenter.mapper.PermissionGroupMapper
+import com.gardilily.vespercenter.mapper.PermissionMapper
 import com.gardilily.vespercenter.mapper.SeatMapper
 import com.gardilily.vespercenter.mapper.UserMapper
-import com.gardilily.vespercenter.service.PermissionService
-import com.gardilily.vespercenter.service.UserEntityService
-import com.gardilily.vespercenter.service.UserService
+import com.gardilily.vespercenter.service.*
 import com.gardilily.vespercenter.utils.toHashMapWithKeysEvenNull
+import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.Parameters
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
 import jakarta.servlet.http.HttpSession
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
@@ -30,18 +32,23 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.util.DigestUtils
 import org.springframework.web.bind.annotation.*
 import java.sql.Timestamp
+import kotlin.random.Random
 
 @RestController
 @RequestMapping("user")
 class UserController @Autowired constructor(
     val userMapper: UserMapper,
-    val permissionGroupMapper: PermissionGroupMapper,
+    val permissionMapper: PermissionMapper,
     val permissionGrantMapper: PermissionGrantMapper,
     val seatMapper: SeatMapper,
 
     val userEntityService: UserEntityService,
     val userService: UserService,
     val permissionService: PermissionService,
+
+    val userGroupService: UserGroupService,
+    val groupMemberService: GroupMemberService,
+    val sessionManager: SessionManager,
 ) {
 
     /**
@@ -139,6 +146,61 @@ class UserController @Autowired constructor(
         }
     }
 
+
+
+    @PostMapping("createSuperUser")
+    fun createSuperUser(
+        @RequestBody body: HashMap<String, Any>
+    ): IResponse<HashMap<String, Any?>> {
+        // 输入参数非空校验。
+        val username = body["username"] as String? ?: return IResponse.error(msg = "需要用户名", code = HttpStatus.BAD_REQUEST)
+        val password = body["password"] as String? ?: return IResponse.error(msg = "需要密码。", code = HttpStatus.BAD_REQUEST)
+
+        // 权限检查
+        val userCount = userMapper.selectCount(KtQueryWrapper(UserEntity::class.java)) ?: return IResponse.error(msg = "内部错误")
+        if (userCount != 0L) {
+            return IResponse.error(msg = "系统内已经存在超级用户！")
+        }
+
+        // 密码强度检查
+        val passwdStrengthRes = password.checkPasswordStrength()
+        if (passwdStrengthRes != null) {
+            return IResponse.error(msg = "密码校验失败：$passwdStrengthRes")
+        }
+
+        // 创建用户
+        val user = UserEntity(
+            username = username,
+            createTime = Timestamp(System.currentTimeMillis()),
+            creator = 0
+        )
+
+        if (userMapper.insert(user) != 1) {
+            return IResponse.error(msg = "用户添加失败！")
+        }
+
+        user.passwd = password.toMd5Password(user.id!!)
+        user.creator = user.id
+        userMapper.updateById(user)
+
+        // 赋权
+
+        Permission.allPermissions().forEach {
+            permissionGrantMapper.insert(PermissionGrantEntity(
+                userId = user.id!!,
+                permissionId = it
+            ))
+        }
+
+
+        return IResponse.ok(user.toHashMapWithKeysEvenNull(
+            UserEntity::id,
+            UserEntity::createTime,
+            UserEntity::username
+        ))
+    }
+
+
     /**
      * 用户登录。
      * 传入参数：
@@ -154,7 +216,7 @@ class UserController @Autowired constructor(
     @PostMapping("login")
     fun login(
         @RequestBody requestBody: HashMap<String, Any>,
-        httpSession: HttpSession
+        response: HttpServletResponse,
     ): IResponse<Int> {
 
         // 输入参数非空校验。
@@ -172,7 +234,9 @@ class UserController @Autowired constructor(
 
         // 登录成功。
 
-        httpSession.setAttribute(MacroDefines.SessionAttrKey.USER_ID, entity.id) // 设置 session 信息，标记其登录成功。
+        val sessionKey = sessionManager.addSession(entity.id!!) // 设置 session 信息，标记其登录成功。
+        response.addHeader(SessionManager.HTTP_HEADER_KEY, sessionKey)
+
         entity.lastLoginTime = Timestamp(System.currentTimeMillis()) // 更新“上次登录时间”。
         userMapper.updateById(entity)
         return IResponse.ok(0, msg = "登录成功")
@@ -182,8 +246,11 @@ class UserController @Autowired constructor(
      * 退出登录。
      */
     @GetMapping("logout")
-    fun logout(httpSession: HttpSession): IResponse<Boolean> {
-        httpSession.removeAttribute(MacroDefines.SessionAttrKey.USER_ID)
+    fun logout(request: HttpServletRequest): IResponse<Boolean> {
+        val token = request.getHeader(SessionManager.HTTP_HEADER_KEY)
+        if (token != null) {
+            sessionManager.remove(token)
+        }
         return IResponse.ok(true)
     }
 
@@ -194,11 +261,11 @@ class UserController @Autowired constructor(
      */
     @GetMapping("myPermissions")
     fun getMyPermissions(
-        @SessionAttribute(MacroDefines.SessionAttrKey.USER_ID) userId: Long
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) sessionTicket: SessionManager.Ticket
     ): IResponse<List<PermissionGrantEntity>> {
         return IResponse.ok(permissionGrantMapper.selectList(
             KtQueryWrapper(PermissionGrantEntity::class.java)
-                .eq(PermissionGrantEntity::userId, userId)
+                .eq(PermissionGrantEntity::userId, sessionTicket.userId)
         ))
     }
 
@@ -207,10 +274,10 @@ class UserController @Autowired constructor(
      */
     @GetMapping("allPermissions")
     fun getAllPermissions(
-        @SessionAttribute(MacroDefines.SessionAttrKey.USER_ID) userId: Long
-    ): IResponse<List<PermissionGroupEntity>> {
-        return IResponse.ok(permissionGroupMapper.selectList(
-            KtQueryWrapper(PermissionGroupEntity::class.java)
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket
+    ): IResponse<List<PermissionEntity>> {
+        return IResponse.ok(permissionMapper.selectList(
+            KtQueryWrapper(PermissionEntity::class.java)
         ))
     }
 
@@ -219,14 +286,15 @@ class UserController @Autowired constructor(
      */
     @GetMapping("basicInfo")
     fun getBasicInfo(
-        @SessionAttribute(MacroDefines.SessionAttrKey.USER_ID) userId: Long
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket
     ): IResponse<HashMap<String, Any?>> {
-        val entity = userEntityService[userId]
+        val entity = userEntityService[ticket.userId]
 
         return IResponse.ok(entity.toHashMapWithKeysEvenNull(
             UserEntity::id,
             UserEntity::username,
-            UserEntity::lastLoginTime
+            UserEntity::lastLoginTime,
+            UserEntity::createTime
         ))
     }
 
@@ -236,9 +304,10 @@ class UserController @Autowired constructor(
     )
     @PostMapping("changePassword")
     fun changePassword(
-        @SessionAttribute(MacroDefines.SessionAttrKey.USER_ID) bUserId: Long,
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
         @RequestBody body: ChangePasswordRequestDto
     ): IResponse<Unit> {
+        val userId = ticket.userId
 
         if (body.oldPw == null || body.newPw == null) {
             return IResponse.error(msg = "信息不完整。")
@@ -249,11 +318,11 @@ class UserController @Autowired constructor(
             return IResponse.error(msg = newPwStrengthResult)
         }
 
-        val hashedOldPw = body.oldPw!!.toMd5Password(bUserId)
-        val hashedNewPw = body.newPw!!.toMd5Password(bUserId)
+        val hashedOldPw = body.oldPw!!.toMd5Password(userId)
+        val hashedNewPw = body.newPw!!.toMd5Password(userId)
 
 
-        val userEntity = userEntityService[bUserId]
+        val userEntity = userEntityService[userId]
 
         if (hashedOldPw != userEntity.passwd) {
             return IResponse.error(msg = "旧密码错误。")
@@ -268,18 +337,21 @@ class UserController @Autowired constructor(
     /**
      * 获取所有用户。
      * todo: 应支持分页查询。
+     * todo: 权限控制
      */
     @GetMapping("allUsers")
     fun getAllUsers(
-        @SessionAttribute(MacroDefines.SessionAttrKey.USER_ID) userId: Long
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket
     ): IResponse<List<HashMap<String, Any?>>> {
-        val entity = userEntityService[userId]
+        val entity = userEntityService[ticket.userId]
         val resList = ArrayList<HashMap<String, Any?>>()
         userMapper.selectList(KtQueryWrapper(UserEntity::class.java)).forEach { uEntity ->
             resList.add(uEntity.toHashMapWithKeysEvenNull(
                 UserEntity::id,
                 UserEntity::username,
-                UserEntity::lastLoginTime
+                UserEntity::lastLoginTime,
+                UserEntity::createTime,
+                UserEntity::creator,
             ))
         }
 
@@ -293,7 +365,7 @@ class UserController @Autowired constructor(
      */
     @GetMapping("userDetail")
     fun getUserDetail(
-        @SessionAttribute(MacroDefines.SessionAttrKey.USER_ID) userId: Long,
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
         @RequestParam targetUserId: Long? = null
     ): IResponse<HashMap<String, Any?>> {
         targetUserId ?: return IResponse.error(msg = "需要targetUserId。", code = HttpStatus.BAD_REQUEST)
@@ -319,7 +391,7 @@ class UserController @Autowired constructor(
     }
 
     data class GrantPermissionRequestDto(
-        var permission: PermissionGroup? = null,
+        var permission: Permission? = null,
         var grant: Boolean? = null,
         var targetUserId: Long? = null
     )
@@ -331,7 +403,7 @@ class UserController @Autowired constructor(
     @PostMapping("grantPermission")
     @Transactional
     fun grantPermission(
-        @SessionAttribute(MacroDefines.SessionAttrKey.USER_ID) userId: Long,
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
         @RequestBody body: GrantPermissionRequestDto
     ): IResponse<Unit> {
         // 传入参数非空校验。
@@ -339,15 +411,15 @@ class UserController @Autowired constructor(
             return IResponse.error(msg = "请求体不完整。", code = HttpStatus.BAD_REQUEST)
         }
 
-        val entity = userEntityService[userId]
+        val entity = userEntityService[ticket.userId]
 
         // 操作权限校验。
         when (body.permission) {
             // 本接口拒绝受理超级权限赋权请求！
-            PermissionGroup.GRANT_PERMISSION -> return IResponse.error(msg = "拒绝赋权！", code = HttpStatus.FORBIDDEN)
+            Permission.GRANT_PERMISSION -> return IResponse.error(msg = "拒绝赋权！", code = HttpStatus.FORBIDDEN)
 
             // 如果要赋予其他用户权限，自己必须拥有“赋权”权限。
-            else -> permissionService.ensurePermission(entity, PermissionGroup.GRANT_PERMISSION)
+            else -> permissionService.ensurePermission(entity, Permission.GRANT_PERMISSION)
         }
 
         // 检查待赋权用户是否存在。
@@ -387,8 +459,112 @@ class UserController @Autowired constructor(
     } // fun grantPermission
 
 
-    @GetMapping("testMd5")
-    fun testMd5(@RequestParam pw: String, @RequestParam uid: Long): IResponse<String> {
-        return IResponse.ok(pw.toMd5Password(uid))
+    data class CreateNewUserDto(
+        val newUsers: Array<CreateNewUserDto.UserEntity>
+    ) {
+        data class UserEntity(
+            val username: String,
+            val group: Long?
+        )
+
+        data class CreateUsersResultEntry(
+            val success: Boolean,
+            val msg: String = "",
+            val username: String? = null,
+            val group: Long? = null,
+            val passwd: String? = null
+        )
     }
+
+    /**
+     * 批量创建新用户。
+     *
+     * 请求参数：
+     *     newUsers: [NewUserEntity]
+     *   其中，NewUserEntity 结构如下：
+     *     username: String
+     *     group: Long?
+     */
+    @Operation(summary = "批量创建新用户")
+    @Parameters(
+        Parameter(name = "newUsers")
+    )
+    @PostMapping("createUsers")
+    fun createUsers(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestBody body: HashMap<String, Any>
+    ): IResponse<Map<String, CreateNewUserDto.CreateUsersResultEntry>> {
+        permissionService.ensurePermission(ticket.userId, Permission.CREATE_AND_DELETE_USER)
+
+        val newUsersRaw = body["newUsers"] as List<HashMap<String, Any>>? ?: return IResponse.error(msg = "需要 newUsers。")
+
+        val newUsers = ArrayList<CreateNewUserDto.UserEntity>()
+        newUsersRaw.forEach {
+            newUsers.add(CreateNewUserDto.UserEntity(
+                username = it["username"] as String? ?: return IResponse.error(msg = "bad username"),
+                group = it["group"] as Long?
+            ))
+        }
+
+        // 插入所有用户的信息。
+
+        val resultMap = HashMap<String, CreateNewUserDto.CreateUsersResultEntry>()
+        newUsers.forEach {
+
+            // 检查用户组是否存在。
+            if (it.group != null) {
+                if (userGroupService.getById(it.group) == null) {
+                    resultMap[it.username] = CreateNewUserDto.CreateUsersResultEntry(
+                        success = false,
+                        msg = "组不存在。"
+                    )
+                }
+                return@forEach
+            }
+
+            // 检查重名。
+            if (userService.exists(KtQueryWrapper(UserEntity::class.java).eq(UserEntity::username, it.username))) {
+                if (!resultMap.contains(it.username)) {
+                    resultMap[it.username] = CreateNewUserDto.CreateUsersResultEntry(
+                        success = false,
+                        msg = "用户名重复。"
+                    )
+                }
+
+                return@forEach
+            }
+
+            // 随机密码
+            val passwd = Random.nextLong().toString().toMd5Password(1).substring(0 until 12)
+            val user = UserEntity(
+                creator = ticket.userId,
+                username = it.username,
+                createTime = Timestamp(System.currentTimeMillis())
+            )
+
+            // 插入用户
+            if (userMapper.insert(user) == 1) {
+                resultMap[it.username] = CreateNewUserDto.CreateUsersResultEntry(
+                    success = true,
+                    username = it.username,
+                    group = it.group,
+                    passwd = passwd
+                )
+            }
+
+            user.passwd = passwd.toMd5Password(user.id!!)
+            userMapper.updateById(user)
+
+            // 加入群组
+            if (it.group != null) {
+                groupMemberService.baseMapper.insert(GroupMemberEntity(
+                    userId = user.id!!,
+                    groupId = it.group
+                ))
+            }
+        } // newUsers.forEach
+
+        return IResponse.ok(resultMap)
+    }
+
 }

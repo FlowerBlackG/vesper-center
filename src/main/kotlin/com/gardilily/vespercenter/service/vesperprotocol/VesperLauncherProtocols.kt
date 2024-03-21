@@ -7,7 +7,7 @@
 
 package com.gardilily.vespercenter.service.vesperprotocol
 
-import com.gardilily.vespercenter.common.Logger
+import com.gardilily.vespercenter.utils.Slf4k.Companion.log
 import java.nio.ByteBuffer
 
 class VesperLauncherProtocols private constructor() {
@@ -38,7 +38,7 @@ class VesperLauncherProtocols private constructor() {
         override fun decodeBody(data: ByteBuffer): Int {
 
             if (data.remaining() < UInt.SIZE_BYTES * 2) {
-                Logger.warning("decode body", "length ${data.remaining()} is too few for body")
+                log.warn("length ${data.remaining()} is too few for body")
                 return 1
             }
 
@@ -46,12 +46,37 @@ class VesperLauncherProtocols private constructor() {
             val msgLen = data.getInt()
 
             if (data.remaining() < msgLen) {
-                Logger.warning("decode body", "length ${data.remaining()} is less than msg-len $msgLen")
+                log.warn("length ${data.remaining()} is less than msg-len $msgLen")
                 return 2
             }
 
             msg = charset(Charsets.UTF_8.name()).decode(data).toString()
             return 0
+        }
+    }
+
+
+    class ShellLaunch : Base() {
+        companion object {
+            const val typeCode = 0x0001u
+        }
+
+        override val type get() = typeCode
+
+        override val bodyLength get() = (cmd.length + Long.SIZE_BYTES).toULong()
+
+        var cmd = ""
+
+        override fun encodeBody(container: ArrayList<Byte>) {
+            // cmd length
+            ByteBuffer.allocate(Long.SIZE_BYTES).putLong(cmd.length.toLong()).array().forEach {
+                container.add(it)
+            }
+
+            // cmd
+            cmd.forEach { ch ->
+                container.add(ch.code.toByte())
+            }
         }
     }
 

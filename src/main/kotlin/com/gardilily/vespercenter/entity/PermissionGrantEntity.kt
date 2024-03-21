@@ -13,6 +13,6 @@ import com.baomidou.mybatisplus.annotation.TableName
 @TableName(value = "permission_grant")
 data class PermissionGrantEntity(
     var userId: Long = 0,
-    var permissionId: PermissionGroupEntity.PermissionGroup =
-        PermissionGroupEntity.PermissionGroup.UNDEFINED
+    var permissionId: PermissionEntity.Permission =
+        PermissionEntity.Permission.UNDEFINED
 )

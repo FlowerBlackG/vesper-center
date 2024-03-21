@@ -6,6 +6,8 @@ package com.gardilily.vespercenter.common
 
 import com.gardilily.vespercenter.dto.IResponse
 import com.gardilily.vespercenter.service.PermissionService
+import com.gardilily.vespercenter.service.UserEntityService
+import com.gardilily.vespercenter.utils.Slf4k
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -15,13 +17,15 @@ import org.springframework.web.bind.ServletRequestBindingException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.ResponseBody
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.servlet.resource.NoResourceFoundException
 
 /**
  * 全局异常处理类。
  */
 @RestControllerAdvice
+@Slf4k
 class GlobalExceptionHandler @Autowired private constructor(
-    private val logger: Logger
+
 ) {
 
     @ResponseBody
@@ -32,6 +36,7 @@ class GlobalExceptionHandler @Autowired private constructor(
             code = HttpStatus.BAD_REQUEST
         )
     }
+
 
     @ResponseBody
     @ExceptionHandler(value = [ServletRequestBindingException::class])
@@ -69,6 +74,26 @@ class GlobalExceptionHandler @Autowired private constructor(
             code = HttpStatus.FORBIDDEN
         )
     }
+
+
+    @ResponseBody
+    @ExceptionHandler(value = [UserEntityService.UserNotFoundException::class])
+    fun userEntityServiceUserNotFoundExceptionHandler(e: Exception): IResponse<Unit> {
+        return IResponse.error(
+            msg = e.message,
+            code = HttpStatus.UNAUTHORIZED
+        )
+    }
+
+    @ResponseBody
+    @ExceptionHandler(value = [NoResourceFoundException::class])
+    fun noResourceFoundExceptionHandler(e: Exception): IResponse<Unit> {
+        return IResponse.error(
+            msg = "资源不存在：${e.message}",
+            code = HttpStatus.NOT_FOUND
+        )
+    }
+
 
     @ResponseBody
     @ExceptionHandler(value = [Exception::class])

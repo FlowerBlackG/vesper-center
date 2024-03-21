@@ -4,6 +4,13 @@ vesper-center:
     version-name: 1.0.0
     version-code: 1
     build-time: 2023-05-16T15:38+08:00
+  session:
+    token-expire-milliseconds: 3600000  # 60分钟
+    ticket-locker-file:
+      # vesper center 停止时，缓存 ticket locker 的位置。
+      # 设为 'none' 以禁用缓存。
+      dump-path: '/home/flowerblack/Desktop/vesper-center-session.txt'
+      dump-key: '0123456789abcdef'
 
 spring:
   datasource:
@@ -19,6 +26,14 @@ spring:
   output:
     ansi:
       enabled: ALWAYS
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
 
 server:
   # vesper center 运行的端口

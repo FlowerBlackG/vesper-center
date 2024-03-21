@@ -2,18 +2,17 @@
 
 /*
  *
- * 创建于 2024年3月3日 上海市嘉定区
+ * 创建于 2024年3月14日 上海市嘉定区
  */
 
 
 package com.gardilily.vespercenter.mapper
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper
-import com.gardilily.vespercenter.entity.PermissionGroupEntity
-import com.gardilily.vespercenter.entity.UserEntity
+import com.gardilily.vespercenter.entity.GroupMemberEntity
 import org.apache.ibatis.annotations.Mapper
 import org.springframework.stereotype.Repository
 
 @Repository
 @Mapper
-interface PermissionGroupMapper : BaseMapper<PermissionGroupEntity>
+interface GroupMemberMapper : BaseMapper<GroupMemberEntity>

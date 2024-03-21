@@ -2,8 +2,9 @@
 
 /*
  *
- * 创建于 2024年3月3日 上海市嘉定区
+ * 创建于 2024年3月14日 上海市嘉定区
  */
+
 
 package com.gardilily.vespercenter.entity
 
@@ -12,13 +13,10 @@ import com.baomidou.mybatisplus.annotation.TableId
 import com.baomidou.mybatisplus.annotation.TableName
 import java.sql.Timestamp
 
-@TableName("user")
-data class UserEntity(
+@TableName("user_group")
+data class UserGroupEntity(
     @TableId(value = "id", type = IdType.AUTO)
     var id: Long? = null,
-    var creator: Long? = null,
-    var username: String? = null,
-    var passwd: String? = null,
-    var createTime: Timestamp? = null,
-    var lastLoginTime: Timestamp? = null,
+    var groupName: String? = null,
+    var createTime: Timestamp? = null
 )
