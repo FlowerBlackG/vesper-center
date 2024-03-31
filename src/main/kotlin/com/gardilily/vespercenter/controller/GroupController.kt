@@ -52,6 +52,7 @@ class GroupController @Autowired constructor(
 
     data class CreateGroupRequestDto(
         val name: String?,
+        val note: String? = null
     )
 
     /**
@@ -60,7 +61,8 @@ class GroupController @Autowired constructor(
      * @return Long: id of the created group.
      */
     @Operation(summary = "创建新用户组")
-    @PostMapping("new")
+
+    @PostMapping("create")
     fun createGroup(
         @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
         @RequestBody body: CreateGroupRequestDto
@@ -77,12 +79,17 @@ class GroupController @Autowired constructor(
 
         val group = UserGroupEntity(
             groupName = body.name,
+            note = body.note,
             createTime = Timestamp(System.currentTimeMillis())
         )
 
         if (userGroupMapper.insert(group) != 1) {
             return IResponse.error(msg = "创建失败。(insert res not 1)")
         }
+
+        // 将自己加入群组
+
+        groupMemberService.addUserToGroup(userId, group.id!!)
 
         // 赋权
 
@@ -166,7 +173,7 @@ class GroupController @Autowired constructor(
      * 会同步删除绑定到该群组的所有主机。
      */
     @Operation(summary = "删除一个组。移除其中的用户，并删除组内主机")
-    @PostMapping("drop")
+    @PostMapping("remove")
     fun removeGroup(
         @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
         @RequestBody body: HashMap<String, Any>
@@ -226,20 +233,7 @@ class GroupController @Autowired constructor(
         val group = userGroupService.getById(groupId) ?: return IResponse.error(msg = "没有这个组。")
         groupPermissionService.ensurePermission(ticket.userId, groupId, GroupPermission.ADD_OR_REMOVE_USER)
 
-        users.forEach {
-            // 检查用户是否存在。
-            if (userService.getById(it) == null) {
-                log.error("user $it not exists.")
-                return@forEach
-            }
-
-            groupMemberMapper.insert(
-                GroupMemberEntity(
-                userId = it,
-                groupId = groupId,
-            )
-            )
-        }
+        groupMemberService.addUsersToGroup(users, groupId)
 
         return IResponse.ok()
     }
@@ -277,6 +271,86 @@ class GroupController @Autowired constructor(
         } // groupMemberEntities.forEach
 
         return IResponse.ok(result)
+    }
+
+
+    data class GroupPermissionResponseDtoEntry(
+        val group: Long,
+        val permission: GroupPermission
+    )
+    @GetMapping("permissions")
+    @Operation(summary = "获得该用户在所有群组内的所有权限")
+    fun getAllGroupPermissions(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket
+    ): IResponse<List<GroupPermissionResponseDtoEntry>> {
+        val granted = groupPermissionGrantMapper.selectList(
+            KtQueryWrapper(GroupPermissionGrantEntity::class.java)
+                .eq(GroupPermissionGrantEntity::userId, ticket.userId)
+        )
+
+        val res = ArrayList<GroupPermissionResponseDtoEntry>()
+        granted.forEach {
+            res.add(GroupPermissionResponseDtoEntry(
+                group = it.groupId,
+                permission = it.permissionId
+            ))
+        }
+
+        return IResponse.ok(res)
+    }
+
+
+    @Operation(summary = "展现有权限看到的所有群组。包含自己加入的和自己管理的。")
+    @GetMapping("groups")
+    fun getMyViewableGroups(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket
+    ): IResponse<List<HashMap<String, Any?>>> {
+
+        val res = HashMap<Long, HashMap<String, Any?>?>() // groupId -> entity
+        fun addToRes(list: List<UserGroupEntity>) {
+            list.forEach { entity ->
+                val id = entity.id!!
+
+                if (res.contains(id))
+                    return@forEach
+
+                res[id] = entity.toHashMapWithKeysEvenNull(
+                    UserGroupEntity::id,
+                    UserGroupEntity::groupName,
+                    UserGroupEntity::note,
+                    UserGroupEntity::createTime,
+                )
+
+                res[id]!!["membersCount"] = groupMemberService.count(
+                    KtQueryWrapper(GroupMemberEntity::class.java)
+                        .eq(GroupMemberEntity::groupId, id)
+                )
+            }
+        }
+
+
+        // 我自己所在的组
+
+        val groupsImIn = groupMemberMapper.selectList(
+            KtQueryWrapper(GroupMemberEntity::class.java).eq(GroupMemberEntity::userId, ticket.userId)
+        )
+
+        if (groupsImIn.isNotEmpty()) {
+            val myGroupsQuery = KtQueryWrapper(UserGroupEntity::class.java)
+
+            myGroupsQuery.`in`(
+                UserGroupEntity::id,
+                groupsImIn.map { it.groupId }
+            )
+
+            addToRes(
+                userGroupMapper.selectList(myGroupsQuery)
+            )
+        }
+
+        // todo: 还需添加的功能：管理员看自己不在的组
+
+        return IResponse.ok(res.map { it.value!! })
     }
 
 }

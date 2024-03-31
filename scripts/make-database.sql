@@ -42,8 +42,9 @@ create table user
 create table user_group
 (
     id          bigint auto_increment,
-    group_name  varchar(32) not null,
-    create_time datetime    not null,
+    group_name  varchar(32)  not null,
+    note        varchar(512) null,
+    create_time datetime     not null,
     constraint group_pk
         primary key (id)
 );

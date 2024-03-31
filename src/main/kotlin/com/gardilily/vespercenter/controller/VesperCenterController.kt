@@ -12,6 +12,7 @@ import com.gardilily.vespercenter.dto.IResponse
 import com.gardilily.vespercenter.entity.UserEntity
 import com.gardilily.vespercenter.mapper.UserMapper
 import com.gardilily.vespercenter.properties.VesperCenterProperties
+import com.gardilily.vespercenter.service.LinuxService
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
@@ -21,7 +22,8 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("vesperCenter")
 class VesperCenterController @Autowired constructor(
     val vesperCenterProperties: VesperCenterProperties,
-    val userMapper: UserMapper
+    val userMapper: UserMapper,
+    val linuxService: LinuxService
 ) {
 
     data class GetSystemVersionResponseDto(
@@ -43,6 +45,12 @@ class VesperCenterController @Autowired constructor(
         return IResponse.ok(
             userMapper.selectCount(KtQueryWrapper(UserEntity::class.java)) != 0L
         )
+    }
+
+
+    @GetMapping("memoryUsage")
+    fun getMemoryUsage(): IResponse<LinuxService.SystemMemoryUsage> {
+        return IResponse.ok(linuxService.getSystemMemoryUsage())
     }
 
 }

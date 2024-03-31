@@ -94,17 +94,21 @@ class SessionManager @Autowired constructor(
     private fun createSessionData(userId: Long): Ticket {
         val key = StringBuilder()
 
-        key.append(UUID.randomUUID().toString().replace("-", ""))
-        key.append(":")
-        key.append(System.currentTimeMillis().toHexString(HexFormat.Default))
-        key.append(":")
-        key.append(Random.nextLong().toHexString(HexFormat.Default))
-        key.append(":$userId")
+        key.append(UUID.randomUUID().toString().replace("-", "")) // 随机 uuid
+            .append(":")
+            .append(System.currentTimeMillis().toHexString(HexFormat.Default)) // 时间戳
+            .append(":")
+            .append(Random.nextLong().toHexString(HexFormat.Default)) // 随机 int64
+            .append(":")
+            .append(vesperCenterProperties.systemVersionCode) // vesper center version code
+            .append(":")
+            .append("$userId") // user id
 
         return Ticket(
             userId = userId,
             key = key.toString(),
-            sessionMgr = this
+            sessionMgr = this,
+            vesperCenterVersionCode = vesperCenterProperties.systemVersionCode
         )
     }
 
@@ -134,6 +138,7 @@ class SessionManager @Autowired constructor(
         /** 发送给前端的 key，用于附在 header 里表明身份。 */
         var key: String,
         var createTime: Long = System.currentTimeMillis(),
+        var vesperCenterVersionCode: Long,
         var sessionMgr: SessionManager
     ) {
         val expired: Boolean
@@ -142,7 +147,6 @@ class SessionManager @Autowired constructor(
                 val limit = sessionMgr.vesperCenterProperties.sessionTokenExpireMilliseconds
                 return live > limit
             }
-
 
 
         override fun toString(): String {
@@ -157,7 +161,8 @@ class SessionManager @Autowired constructor(
 
         companion object {
             private val serializableMembers = listOf(
-                Ticket::userId, Ticket::key, Ticket::createTime
+                Ticket::userId, Ticket::key, Ticket::createTime,
+                Ticket::vesperCenterVersionCode
             )
 
             fun fromString(str: String, sessionMgr: SessionManager): Ticket? {
@@ -166,7 +171,8 @@ class SessionManager @Autowired constructor(
                     val ticket = Ticket(
                         userId = -1,
                         key = "",
-                        sessionMgr = sessionMgr
+                        vesperCenterVersionCode = -1,
+                        sessionMgr = sessionMgr,
                     )
 
                     serializableMembers.forEach {
@@ -288,6 +294,11 @@ class SessionManager @Autowired constructor(
                     .replace("\r", "")
                     .split("\n")
                     .forEach { line ->
+
+                        if (line.isBlank()) {
+                            return@forEach
+                        }
+
                         val ticket = Ticket.fromString(line, sessionMgr)
                         if (ticket != null) {
                             locker[ticket.userId] = ticket

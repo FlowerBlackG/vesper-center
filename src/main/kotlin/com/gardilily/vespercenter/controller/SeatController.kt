@@ -60,6 +60,7 @@ class SeatController @Autowired constructor(
     @Parameters(
         Parameter(name = "group", description = "所属组号。可以为空"),
         Parameter(name = "users", description = "用户id列表", required = true),
+        Parameter(name = "skel", description = "样板间的 seat id", required = false),
         Parameter(name = "note", description = "为主机附上的描述")
     )
     @PostMapping("new")
@@ -71,11 +72,24 @@ class SeatController @Autowired constructor(
         val users = body["users"] as Array<*>? ?: return IResponse.error(msg = "users required.")
         val group = body["group"] as Long? // nullable
         val note = body["note"] as String? // nullable
+        val skelSeatId = body["skel"] as Long? // nullable
+
+        val skelPath = if (skelSeatId != null) {
+
+            val skelSeat = seatService.getById(skelSeatId)
+            if (skelSeat != null) {
+                "/home/${skelSeat.linuxLoginName}"
+            } else
+                null
+
+        } else
+            null
 
         // 权限检查
-        permissionService.ensurePermission(ticket.userId, Permission.CREATE_SEAT)
         if (group != null) {
             groupPermissionService.ensurePermission(ticket.userId, group, GroupPermission.CREATE_OR_DELETE_SEAT)
+        } else {
+            permissionService.ensurePermission(ticket.userId, Permission.CREATE_SEAT)
         }
 
         // 创建主机
@@ -113,7 +127,8 @@ class SeatController @Autowired constructor(
                 seatEntity.linuxPasswdRaw = UUID.randomUUID().toString().substring(0 until 16)
                 seatEntity.linuxUid = linuxService.createUser(
                     seatEntity.linuxLoginName!!,
-                    seatEntity.linuxPasswdRaw!!
+                    seatEntity.linuxPasswdRaw!!,
+                    skeletonDirectory = skelPath,
                 ) ?: throw Exception("linux service failed to create user.")
 
                 seatService.updateById(seatEntity)
@@ -183,6 +198,66 @@ class SeatController @Autowired constructor(
 
     }
 
+
+    /**
+     *
+     * todo: 分页查询
+     */
+    @Operation(
+        summary = "获取用户可以看到的主机列表。包含用户自己的主机，以及用户有权管理的主机。" +
+                "注意，本接口不返回某组内可管理的主机表。"
+    )
+    @GetMapping("seats")
+    fun getSeats(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket
+    ): IResponse<List<Any?>> {
+        val userId = ticket.userId
+
+        val res = HashMap<Long, Any?>() // id -> entity
+
+        fun addToRes(list: List<SeatEntity>) {
+            list.forEach { it ->
+                val id = it.id!!
+                val entity = it
+
+                if (res.contains(id)) {
+                    return@forEach
+                }
+
+                res[id] = entity.toHashMapWithKeysEvenNull(
+                    SeatEntity::id, SeatEntity::userId, SeatEntity::creator, SeatEntity::nickname,
+                    SeatEntity::enabled, SeatEntity::groupId, SeatEntity::note,
+                    SeatEntity::linuxUid, SeatEntity::linuxLoginName, SeatEntity::createTime,
+                    SeatEntity::lastLoginTime
+                )
+            }
+        } // fun addToRes
+
+        // 我的 seat
+        val mySeats = seatService.baseMapper.selectList(
+            KtQueryWrapper(SeatEntity::class.java)
+                .eq(SeatEntity::userId, userId)
+        )
+        addToRes(mySeats)
+
+        // 我管理的全局 seat
+        if (permissionService.checkPermission(userId, Permission.CREATE_SEAT)) {
+            val myManageSeats = seatService.baseMapper.selectList(
+                KtQueryWrapper(SeatEntity::class.java)
+                    .eq(SeatEntity::creator, userId)
+            )
+            addToRes(myManageSeats)
+        }
+
+        // 如果我有管理全部 seat 的权限...
+        if (permissionService.checkPermission(userId, Permission.DELETE_ANY_SEAT)
+            || permissionService.checkPermission(userId, Permission.NAME_ANY_SEAT)) {
+
+            addToRes(seatService.baseMapper.selectList(KtQueryWrapper(SeatEntity::class.java)))
+        }
+
+        return IResponse.ok(res.map { it.value!! })
+    }
 
 
     data class StartSeatResponseDto(
@@ -354,4 +429,5 @@ class SeatController @Autowired constructor(
         // todo: 暂未做权限校验。
         return IResponse.ok(linuxService.getLoggedInUsersAsList())
     }
+
 }

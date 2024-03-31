@@ -39,8 +39,8 @@ server:
   # vesper center 运行的端口
   port: 9000
   error:
-    whilelabel:
-      enable: true
+    whitelabel:
+      enable: false
 
 mybatis:
   configuration:

@@ -18,5 +18,6 @@ data class UserGroupEntity(
     @TableId(value = "id", type = IdType.AUTO)
     var id: Long? = null,
     var groupName: String? = null,
+    var note: String? = null,
     var createTime: Timestamp? = null
 )

@@ -16,7 +16,28 @@ import org.springframework.stereotype.Service
 
 @Service
 class GroupMemberService @Autowired constructor(
-
+    val userService: UserService,
 ) : ServiceImpl<GroupMemberMapper, GroupMemberEntity>() {
+    fun addUsersToGroup(users: List<Long>, groupId: Long) {
+        users.forEach {
+            addUserToGroup(it, groupId)
+        }
+    }
 
+    fun addUserToGroup(userId: Long, groupId: Long): Boolean {
+        // 检查用户是否存在。
+        if (userService.getById(userId) == null) {
+            log.error("user $userId not exists.")
+            return false
+        }
+
+        val insertRes = baseMapper.insert(
+            GroupMemberEntity(
+                userId = userId,
+                groupId = groupId,
+            )
+        )
+
+        return insertRes == 1
+    }
 }

@@ -34,6 +34,10 @@ permission:
 CREATE_SEAT
 创建和删除自己创建的桌面环境
 
+解读：
+    CREATE_SEAT 指的是创建全局环境。
+    如果拥有组内创建环境权限，即使没有 CREATE_SEAT 这项权限，也可以创建环境。
+
 
 permission:
 201

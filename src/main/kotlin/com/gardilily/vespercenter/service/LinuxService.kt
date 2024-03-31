@@ -166,6 +166,36 @@ class LinuxService @Autowired constructor(
                 return getProcessBuilder(cmd).start().waitFor()
             }
 
+
+            fun free(): Pair<List<Long>, List<Long>> {
+                val cmd = StringBuilder("free -b")
+                val p = getProcessBuilder(cmd).start()
+                val (reader, writer) = p.getIO()
+
+                val lines = reader.readLines()
+                val memLine = lines[1]
+                val swapLine = lines[2]
+
+                fun processLine(line: String): List<Long> {
+                    val res = ArrayList<Long>()
+                    line.replace("\r", "")
+                        .replace("\n", "")
+                        .split(" ")
+                        .forEachIndexed { idx, it ->
+                            if (idx == 0 || it.isEmpty())
+                                return@forEachIndexed
+
+                            res.add(it.toLong())
+                        }
+
+                    return res
+                }
+
+                val res = Pair(processLine(memLine), processLine(swapLine))
+                writer.close()
+                return res
+            }
+
         } // companion object of private class Commands
     } // private class Commands
 
@@ -268,4 +298,31 @@ class LinuxService @Autowired constructor(
     }
 
     fun forceLogout(seat: SeatEntity) = forceLogout(seat.linuxUid!!)
+
+
+    data class SystemMemoryUsage(
+        val memTotal: Long,
+        val memUsed: Long,
+        val memFree: Long,
+        val memShared: Long,
+        val memBuffOrCache: Long,
+        val memAvailable: Long,
+        val swapTotal: Long,
+        val swapUsed: Long,
+        val swapFree: Long,
+    )
+    fun getSystemMemoryUsage(): SystemMemoryUsage {
+        val (mem, swap) = Shell.free()
+        return SystemMemoryUsage(
+            memTotal = mem[0],
+            memUsed = mem[1],
+            memFree = mem[2],
+            memShared = mem[3],
+            memBuffOrCache = mem[4],
+            memAvailable = mem[5],
+            swapTotal = swap[0],
+            swapUsed = swap[1],
+            swapFree = swap[2]
+        )
+    }
 }
