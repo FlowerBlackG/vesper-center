@@ -22,6 +22,8 @@ import com.gardilily.vespercenter.service.*
 import com.gardilily.vespercenter.utils.Slf4k.Companion.log
 import com.gardilily.vespercenter.utils.toHashMapWithKeysEvenNull
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
+import io.swagger.v3.oas.annotations.Parameters
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
@@ -173,6 +175,9 @@ class GroupController @Autowired constructor(
      * 会同步删除绑定到该群组的所有主机。
      */
     @Operation(summary = "删除一个组。移除其中的用户，并删除组内主机")
+    @Parameters(
+        Parameter(name = "groupId")
+    )
     @PostMapping("remove")
     fun removeGroup(
         @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
@@ -180,7 +185,8 @@ class GroupController @Autowired constructor(
     ): IResponse<Unit> {
         val userId = ticket.userId
 
-        val gid = body["groupId"] as Long? ?: return IResponse.error(msg = "groupId required.")
+        val rawGid = body["groupId"] as Int? ?: return IResponse.error(msg = "groupId required.")
+        val gid = rawGid.toLong()
         groupPermissionService.ensurePermission(userId, gid, GroupPermission.DROP_GROUP)
 
         // 确认组存在
@@ -274,29 +280,17 @@ class GroupController @Autowired constructor(
     }
 
 
-    data class GroupPermissionResponseDtoEntry(
-        val group: Long,
-        val permission: GroupPermission
-    )
     @GetMapping("permissions")
     @Operation(summary = "获得该用户在所有群组内的所有权限")
     fun getAllGroupPermissions(
         @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket
-    ): IResponse<List<GroupPermissionResponseDtoEntry>> {
+    ): IResponse<List<GroupPermissionGrantEntity>> {
         val granted = groupPermissionGrantMapper.selectList(
             KtQueryWrapper(GroupPermissionGrantEntity::class.java)
                 .eq(GroupPermissionGrantEntity::userId, ticket.userId)
         )
 
-        val res = ArrayList<GroupPermissionResponseDtoEntry>()
-        granted.forEach {
-            res.add(GroupPermissionResponseDtoEntry(
-                group = it.groupId,
-                permission = it.permissionId
-            ))
-        }
-
-        return IResponse.ok(res)
+        return IResponse.ok(granted)
     }
 
 

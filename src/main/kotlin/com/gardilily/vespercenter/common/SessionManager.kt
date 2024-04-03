@@ -59,6 +59,9 @@ class SessionManager @Autowired constructor(
                 return@run
             }
 
+            // ticket 存在且未过期
+
+            ticket.refreshLife()
             request.setAttribute(SESSION_ATTR_KEY, ticket)
         }
 
@@ -141,13 +144,28 @@ class SessionManager @Autowired constructor(
         var vesperCenterVersionCode: Long,
         var sessionMgr: SessionManager
     ) {
+
+        var expireTime: Long = createTime + sessionMgr.vesperCenterProperties.sessionTokenExpireMilliseconds
+            private set(value) {field = value}
+            get() = field
+
         val expired: Boolean
             inline get() {
-                val live = System.currentTimeMillis() - createTime
-                val limit = sessionMgr.vesperCenterProperties.sessionTokenExpireMilliseconds
-                return live > limit
+                return System.currentTimeMillis() > expireTime
             }
 
+
+        fun extendLife(timeMillis: Long?) {
+            if (timeMillis != null) {
+                expireTime += timeMillis
+            } else {
+                refreshLife()
+            }
+        }
+
+        fun refreshLife() {
+            expireTime = System.currentTimeMillis() + sessionMgr.vesperCenterProperties.sessionTokenExpireMilliseconds
+        }
 
         override fun toString(): String {
             val json = JSONObject()
@@ -162,7 +180,7 @@ class SessionManager @Autowired constructor(
         companion object {
             private val serializableMembers = listOf(
                 Ticket::userId, Ticket::key, Ticket::createTime,
-                Ticket::vesperCenterVersionCode
+                Ticket::vesperCenterVersionCode, Ticket::expireTime
             )
 
             fun fromString(str: String, sessionMgr: SessionManager): Ticket? {
