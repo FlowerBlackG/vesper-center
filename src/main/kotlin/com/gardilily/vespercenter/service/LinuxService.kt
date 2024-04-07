@@ -9,6 +9,7 @@
 package com.gardilily.vespercenter.service
 
 import com.gardilily.vespercenter.entity.SeatEntity
+import com.gardilily.vespercenter.entity.UserEntity
 import com.gardilily.vespercenter.utils.Slf4k
 import com.gardilily.vespercenter.utils.Slf4k.Companion.log
 import lombok.extern.slf4j.Slf4j
@@ -196,6 +197,37 @@ class LinuxService @Autowired constructor(
                 return res
             }
 
+
+            fun setfacl(
+                modify: String?,
+                target: String,
+                recursive: Boolean = true,
+            ): Int {
+                val cmd = StringBuilder("sudo setfacl")
+                if (recursive) {
+                    cmd.append(" -R")
+                }
+
+                if (modify != null) {
+                    cmd.append(" -m ")
+                        .append(modify)
+                }
+
+                cmd.append(' ')
+                    .append(target)
+
+                val p = getProcessBuilder(cmd).start()
+                return p.waitFor()
+            }
+
+            fun whoami(): String {
+                val p = getProcessBuilder("whoami").start()
+                val (r, w) = p.getIO()
+                val name = r.readText()
+                w.close()
+                return name
+            }
+
         } // companion object of private class Commands
     } // private class Commands
 
@@ -311,6 +343,8 @@ class LinuxService @Autowired constructor(
         val swapUsed: Long,
         val swapFree: Long,
     )
+
+
     fun getSystemMemoryUsage(): SystemMemoryUsage {
         val (mem, swap) = Shell.free()
         return SystemMemoryUsage(
@@ -325,4 +359,24 @@ class LinuxService @Autowired constructor(
             swapFree = swap[2]
         )
     }
+
+
+    val linuxUsername: String
+        get() = System.getProperty("user.name", Shell.whoami())
+
+
+    fun unlockFileAccess(path: String) {
+        Shell.setfacl(
+            modify = "u:$linuxUsername:rwx",
+            target = path
+        )
+    }
+
+
+    fun unlockTmpfsAccess(uid: Int) {
+        unlockFileAccess(xdgRuntimeDirOf(uid))
+    }
+
+    fun unlockTmpfsAccess(seat: SeatEntity) = unlockTmpfsAccess(seat.linuxUid!!)
+
 }

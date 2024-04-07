@@ -63,7 +63,6 @@ class GroupController @Autowired constructor(
      * @return Long: id of the created group.
      */
     @Operation(summary = "创建新用户组")
-
     @PostMapping("create")
     fun createGroup(
         @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
@@ -227,6 +226,10 @@ class GroupController @Autowired constructor(
      *   users: List<Long>
      */
     @Operation(summary = "将用户添加到群组")
+    @Parameters(
+        Parameter(name = "groupId", description = "目标群组id"),
+        Parameter(name = "users", description = "用户id列表")
+    )
     @PostMapping("addUsers")
     fun addUsers(
         @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,

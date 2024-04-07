@@ -69,8 +69,8 @@ class SeatController @Autowired constructor(
         @RequestBody body: HashMap<String, *>
     ): IResponse<List<CreateSeatsResponseDto.Entry>> {
         // 参数校验
-        val users = body["users"] as Array<*>? ?: return IResponse.error(msg = "users required.")
-        val group = body["group"] as Long? // nullable
+        val users = body["users"] as List<*>? ?: return IResponse.error(msg = "users required.")
+        val group = (body["group"] as Int?)?.toLong() // nullable
         val note = body["note"] as String? // nullable
         val skelSeatId = body["skel"] as Long? // nullable
 
@@ -96,7 +96,7 @@ class SeatController @Autowired constructor(
         val successList = ArrayList<CreateSeatsResponseDto.Entry>()
 
         users.forEach {
-            val uid = try { it as Long } catch (_: Exception) { return@forEach }
+            val uid = try { (it as Int).toLong() } catch (_: Exception) { return@forEach }
 
             // 检查用户在不在组里面。
             if (group != null) {
@@ -275,7 +275,7 @@ class SeatController @Autowired constructor(
         @RequestBody body: HashMap<String, *>
     ): IResponse<StartSeatResponseDto> {
         val userId = ticket.userId
-        val seatId = body["seatId"] as Long? ?: return IResponse.error(msg = "seatId required.")
+        val seatId = (body["seatId"] as Int?)?.toLong() ?: return IResponse.error(msg = "seatId required.")
 
         val seat = seatService.getById(seatId) ?: return IResponse.error(msg = "启动失败（错误0）。")
 
@@ -293,6 +293,7 @@ class SeatController @Autowired constructor(
         // 登录到 seat
         linuxService.loginToUser(seat)
 
+        linuxService.unlockTmpfsAccess(seat)
 
         return IResponse.ok(StartSeatResponseDto(
             seat = seat.toHashMapWithKeysEvenNull(
@@ -320,7 +321,7 @@ class SeatController @Autowired constructor(
     ): IResponse<StartVesperResponseDto> {
         val userId = ticket.userId
         // 参数非空检查。
-        val seatId = body["seatId"] as Long? ?: return IResponse.error(msg = "seatId required.")
+        val seatId = (body["seatId"] as Int?)?.toLong() ?: return IResponse.error(msg = "seatId required.")
         val seat = seatService.getById(seatId) ?: return IResponse.error(msg = "错误1。")
         val execCmds = body["execCmds"] as String? ?: "2,7,7,konsoledolphin"
 
@@ -345,7 +346,9 @@ class SeatController @Autowired constructor(
 
         // 准备 vesper 命令行
         val vesperCmdLine = StringBuilder("vesper")
-        vesperCmdLine.append(" --headless")
+        vesperCmdLine.append(" --no-color")
+            .append(" --log-to /home/${seat.linuxLoginName}/vesper-core.log")
+            .append(" --headless")
             .append(" --add-virtual-display 1280*720") // todo
             .append(" --use-pixman-renderer")
             .append(" --exec-cmds $execCmds")
@@ -428,6 +431,26 @@ class SeatController @Autowired constructor(
     ): IResponse<List<String>> {
         // todo: 暂未做权限校验。
         return IResponse.ok(linuxService.getLoggedInUsersAsList())
+    }
+
+
+    @PostMapping("shutdown")
+    @Operation(summary = "关闭一个桌面环境。")
+    fun shutdown(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestBody body: HashMap<String, Any?>
+    ): IResponse<Unit> {
+        val seatId = (body["seatId"] as Int?)?.toLong() ?: return IResponse.error()
+
+        val seat = seatService.getById(seatId) ?: return IResponse.error()
+
+        if (seat.userId != ticket.userId) {
+            return IResponse.error()
+        }
+
+        linuxService.forceLogout(seat)
+
+        return IResponse.ok()
     }
 
 }

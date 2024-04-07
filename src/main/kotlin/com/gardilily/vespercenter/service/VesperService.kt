@@ -107,6 +107,7 @@ class VesperService @Autowired constructor(
 
 
     fun isVesperLauncherLive(linuxUid: Int): Boolean {
+        linuxService.unlockTmpfsAccess(linuxUid)
         return File("${linuxService.xdgRuntimeDirOf(linuxUid)}/${MacroDefines.Vesper.LAUNCHER_SOCK}").exists()
     }
 
@@ -114,6 +115,7 @@ class VesperService @Autowired constructor(
     fun isVesperLauncherLive(seat: SeatEntity) = isVesperLauncherLive(seat.linuxUid!!)
 
     fun isVesperLive(linuxUid: Int): Boolean {
+        linuxService.unlockTmpfsAccess(linuxUid)
         return File("${linuxService.xdgRuntimeDirOf(linuxUid)}/${MacroDefines.Vesper.CONTROL_SOCK}").exists()
     }
 
