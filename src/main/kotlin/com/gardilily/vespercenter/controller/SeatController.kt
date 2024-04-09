@@ -293,6 +293,9 @@ class SeatController @Autowired constructor(
         // 登录到 seat
         linuxService.loginToUser(seat)
 
+        seat.lastLoginTime = Timestamp(System.currentTimeMillis())
+        seatService.updateById(seat)
+
         linuxService.unlockTmpfsAccess(seat)
 
         return IResponse.ok(StartSeatResponseDto(
@@ -425,12 +428,25 @@ class SeatController @Autowired constructor(
     }
 
 
-    @GetMapping("usersLoggedIn")
-    fun getUsersLoggedIn(
+    @GetMapping("allUsersLoggedIn")
+    fun getAllUsersLoggedIn(
         @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
     ): IResponse<List<String>> {
         // todo: 暂未做权限校验。
         return IResponse.ok(linuxService.getLoggedInUsersAsList())
+    }
+
+
+    @GetMapping("userLoggedIn")
+    fun checkUserLoggedIn(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestParam seatId: Long
+    ): IResponse<Boolean> {
+        val seat = seatService.getById(seatId) ?: return IResponse.error()
+
+        // todo: permission check
+
+        return IResponse.ok(linuxService.isLoggedIn(seat))
     }
 
 
@@ -451,6 +467,39 @@ class SeatController @Autowired constructor(
         linuxService.forceLogout(seat)
 
         return IResponse.ok()
+    }
+
+
+    @Operation(summary = "获取某个特定主机的信息")
+    @GetMapping("detail")
+    fun detail(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestParam seatId: Long
+    ): IResponse<HashMap<String, Any?>> {
+        val seat = seatService.getById(seatId) ?: return IResponse.error()
+
+        if (seat.userId == ticket.userId || seat.creator == ticket.userId) {
+            // passed
+        } else if (permissionService.checkPermission(ticket.userId, Permission.LOGIN_TO_ANY_SEAT)) {
+            // passed
+        } else if (seat.groupId != null) {
+            groupPermissionService.ensurePermission(ticket.userId, seat.groupId!!, GroupPermission.LOGIN_TO_ANY_SEAT)
+        } else {
+            return IResponse.error()
+        }
+
+        val res = seat.toHashMapWithKeysEvenNull(
+            SeatEntity::id, SeatEntity::userId, SeatEntity::groupId,
+            SeatEntity::creator, SeatEntity::enabled, SeatEntity::nickname,
+            SeatEntity::note, SeatEntity::linuxUid,
+            SeatEntity::linuxLoginName, SeatEntity::createTime, SeatEntity::lastLoginTime
+        )
+
+        if (seat.groupId != null) {
+            res["groupName"] = userGroupService.getById(seat.groupId).groupName
+        }
+
+        return IResponse.ok(res)
     }
 
 }

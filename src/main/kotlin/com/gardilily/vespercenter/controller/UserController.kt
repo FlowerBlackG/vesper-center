@@ -8,7 +8,9 @@
 
 package com.gardilily.vespercenter.controller
 
+import com.baomidou.mybatisplus.annotation.IEnum
 import com.baomidou.mybatisplus.extension.kotlin.KtQueryWrapper
+import com.fasterxml.jackson.annotation.JsonValue
 import com.gardilily.vespercenter.common.MacroDefines
 import com.gardilily.vespercenter.common.SessionManager
 import com.gardilily.vespercenter.dto.IResponse
@@ -459,22 +461,36 @@ class UserController @Autowired constructor(
     } // fun grantPermission
 
 
-    data class CreateNewUserDto(
-        val newUsers: Array<CreateNewUserDto.UserEntity>
-    ) {
-        data class UserEntity(
+    class CreateNewUserDto private constructor() {
+
+        data class RequestUserEntity(
             val username: String,
             val group: Long?
         )
 
         data class CreateUsersResultEntry(
-            val success: Boolean,
-            val msg: String = "",
-            val username: String? = null,
-            val group: Long? = null,
-            val passwd: String? = null
+            var group: Long? = null,
+            var passwd: String? = null,
+            /** userid */
+            var id: Long? = null,
+            var username: String,
+            var result: Result = Result.PENDING,
+            var resultMsg: String = "",
         )
+
+        enum class Result(@JsonValue val enumValue: String) : IEnum<String> {
+            PENDING("pending"),
+            CREATED("created"),
+            FAILED("failed"),
+
+            ;
+
+            override fun getValue(): String {
+                return this.enumValue
+            }
+        }
     }
+
 
     /**
      * 批量创建新用户。
@@ -487,7 +503,7 @@ class UserController @Autowired constructor(
      */
     @Operation(summary = "批量创建新用户")
     @Parameters(
-        Parameter(name = "newUsers")
+        Parameter(name = "newUsers", example = "[\"GuanTouyu\", \"YeSiqiu\", \"Strawpplenage°\"]")
     )
     @PostMapping("createUsers")
     fun createUsers(
@@ -496,27 +512,34 @@ class UserController @Autowired constructor(
     ): IResponse<Map<String, CreateNewUserDto.CreateUsersResultEntry>> {
         permissionService.ensurePermission(ticket.userId, Permission.CREATE_AND_DELETE_USER)
 
-        val newUsersRaw = body["newUsers"] as List<HashMap<String, Any>>? ?: return IResponse.error(msg = "需要 newUsers。")
+        val newUsersRaw = body["newUsers"] as List<*>? ?: return IResponse.error(msg = "需要 newUsers。")
 
-        val newUsers = ArrayList<CreateNewUserDto.UserEntity>()
-        newUsersRaw.forEach {
-            newUsers.add(CreateNewUserDto.UserEntity(
-                username = it["username"] as String? ?: return IResponse.error(msg = "bad username"),
-                group = it["group"] as Long?
+        val newUsers = ArrayList<CreateNewUserDto.RequestUserEntity>()
+
+        /**
+         * username -> result entity
+         */
+        val resultMap = HashMap<String, CreateNewUserDto.CreateUsersResultEntry>()
+
+        for (it in newUsersRaw) {
+            it as HashMap<*, *>
+            newUsers.add(CreateNewUserDto.RequestUserEntity(
+                username = it["username"] as String? ?: continue,
+                group = (it["group"] as Int?)?.toLong()
             ))
         }
 
         // 插入所有用户的信息。
 
-        val resultMap = HashMap<String, CreateNewUserDto.CreateUsersResultEntry>()
         newUsers.forEach {
 
             // 检查用户组是否存在。
             if (it.group != null) {
                 if (userGroupService.getById(it.group) == null) {
                     resultMap[it.username] = CreateNewUserDto.CreateUsersResultEntry(
-                        success = false,
-                        msg = "组不存在。"
+                        username = it.username,
+                        result = CreateNewUserDto.Result.FAILED,
+                        resultMsg = "组不存在"
                     )
                 }
                 return@forEach
@@ -526,8 +549,9 @@ class UserController @Autowired constructor(
             if (userService.exists(KtQueryWrapper(UserEntity::class.java).eq(UserEntity::username, it.username))) {
                 if (!resultMap.contains(it.username)) {
                     resultMap[it.username] = CreateNewUserDto.CreateUsersResultEntry(
-                        success = false,
-                        msg = "用户名重复。"
+                        username = it.username,
+                        result = CreateNewUserDto.Result.FAILED,
+                        resultMsg = "用户名重复"
                     )
                 }
 
@@ -545,10 +569,12 @@ class UserController @Autowired constructor(
             // 插入用户
             if (userMapper.insert(user) == 1) {
                 resultMap[it.username] = CreateNewUserDto.CreateUsersResultEntry(
-                    success = true,
+                    result = CreateNewUserDto.Result.CREATED,
                     username = it.username,
                     group = it.group,
-                    passwd = passwd
+                    passwd = passwd,
+                    resultMsg = "创建成功",
+                    id = user.id
                 )
             }
 
