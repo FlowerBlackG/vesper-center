@@ -4,6 +4,8 @@ package com.gardilily.vespercenter.controller
 
 import com.gardilily.vespercenter.dto.IResponse
 import com.gardilily.vespercenter.service.LinuxService
+import com.gardilily.vespercenter.service.VesperService
+import com.gardilily.vespercenter.service.vesperprotocol.VesperControlProtocols
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.web.bind.annotation.GetMapping
@@ -20,7 +22,8 @@ import java.io.OutputStreamWriter
 @RestController
 @RequestMapping("test")
 class TestController @Autowired constructor(
-    val linuxService: LinuxService
+    val linuxService: LinuxService,
+    val vesperService: VesperService
 ) {
 
 
@@ -31,5 +34,10 @@ class TestController @Autowired constructor(
     ): IResponse<String> {
         response.addHeader("vesper-test", "time: ${ System.currentTimeMillis() }")
         return IResponse.ok()
+    }
+
+    @GetMapping("send")
+    fun send() {
+        vesperService.sendToVesper(VesperControlProtocols.GetVNCPort(), "/run/user/1000/vesper.sock")
     }
 }

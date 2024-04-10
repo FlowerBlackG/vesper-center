@@ -22,7 +22,9 @@ class WebConfig @Autowired constructor(
             .allowedOrigins(
                 "http://localhost:3000",
                 "https://vesper-front.gardilily.com",
-                "http://localhost:13287")
+                "http://localhost:13287",
+                "https://flowerblackg.github.io"
+            )
             .allowCredentials(false)
             .allowedMethods("*")
             .allowedHeaders("*")

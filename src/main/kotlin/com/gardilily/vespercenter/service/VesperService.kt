@@ -8,6 +8,7 @@ package com.gardilily.vespercenter.service
 
 import com.gardilily.vespercenter.common.MacroDefines
 import com.gardilily.vespercenter.entity.SeatEntity
+import com.gardilily.vespercenter.service.vesperprotocol.VesperControlProtocols
 import com.gardilily.vespercenter.service.vesperprotocol.VesperProtocol
 import com.gardilily.vespercenter.utils.Slf4k
 import com.gardilily.vespercenter.utils.Slf4k.Companion.log
@@ -66,6 +67,25 @@ class VesperService @Autowired constructor(
     fun <T> send(request: VesperProtocol, socketPath: Path): T? {
         return send(request, socketPath) as T?
     }
+
+    fun sendToVesper(request: VesperControlProtocols.Base, socketPath: Path): VesperControlProtocols.Response? {
+        return send(request, socketPath) as VesperControlProtocols.Response?
+    }
+
+    fun sendToVesper(request: VesperControlProtocols.Base, socketPath: String): VesperControlProtocols.Response? {
+        return send(request, Path.of(socketPath)) as VesperControlProtocols.Response?
+    }
+
+    fun sendToVesper(request: VesperControlProtocols.Base, seat: SeatEntity): VesperControlProtocols.Response? {
+        return send(request, controlSockPathOf(seat)) as VesperControlProtocols.Response?
+    }
+
+    fun sendToVesperCore(req: VesperControlProtocols.Base, sock: String) = sendToVesper(req, sock)
+    fun sendToVesperCore(req: VesperControlProtocols.Base, sock: Path) = sendToVesper(req, sock)
+    fun sendToVesperControl(req: VesperControlProtocols.Base, sock: String) = sendToVesper(req, sock)
+    fun sendToVesperControl(req: VesperControlProtocols.Base, sock: Path) = sendToVesper(req, sock)
+    fun sendToVesperCtrl(req: VesperControlProtocols.Base, sock: String) = sendToVesper(req, sock)
+    fun sendToVesperCtrl(req: VesperControlProtocols.Base, sock: Path) = sendToVesper(req, sock)
 
 
     fun send(request: VesperProtocol, socketPath: Path): VesperProtocol? {

@@ -30,10 +30,12 @@ class VesperLauncherProtocols private constructor() {
 
         override val type get() = typeCode
 
-        override val bodyLength get() = (UInt.SIZE_BYTES * 2 + msg.length).toULong()
+        override val bodyLength get() = (UInt.SIZE_BYTES * 2 + msg.size).toULong()
 
         var code = 0
-        var msg = ""
+        var msg = ByteArray(0)
+        val msgString: String
+            get() = String(msg)
 
         override fun decodeBody(data: ByteBuffer): Int {
 
@@ -50,7 +52,8 @@ class VesperLauncherProtocols private constructor() {
                 return 2
             }
 
-            msg = charset(Charsets.UTF_8.name()).decode(data).toString()
+            msg = ByteArray(msgLen)
+            data.get(msg)
             return 0
         }
     }

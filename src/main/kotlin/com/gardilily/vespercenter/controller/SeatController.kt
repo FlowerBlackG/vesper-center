@@ -18,6 +18,7 @@ import com.gardilily.vespercenter.entity.PermissionEntity.Permission
 import com.gardilily.vespercenter.entity.GroupPermissionEntity.GroupPermission
 import com.gardilily.vespercenter.entity.SeatEntity
 import com.gardilily.vespercenter.service.*
+import com.gardilily.vespercenter.service.vesperprotocol.VesperControlProtocols
 import com.gardilily.vespercenter.service.vesperprotocol.VesperLauncherProtocols
 import com.gardilily.vespercenter.utils.Slf4k
 import com.gardilily.vespercenter.utils.toHashMapWithKeysEvenNull
@@ -373,7 +374,7 @@ class SeatController @Autowired constructor(
         val response = vesperService.send<VesperLauncherProtocols.Response>(request, vesperService.launcherSockPathOf(seat))
         response ?: return IResponse.error(msg = "failed to get response from vesper launcher.")
         if (response.code != 0) {
-            return IResponse.error(msg = response.msg)
+            return IResponse.error(msg = response.msgString)
         }
 
         return IResponse.ok(StartVesperResponseDto(
@@ -382,6 +383,44 @@ class SeatController @Autowired constructor(
             vncPassword = vncPassword
         ))
     } // fun startVesper
+
+
+    @GetMapping("vncConnectionInfo")
+    fun getVncConnectionInfo(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestParam seatId: Long
+    ): IResponse<StartVesperResponseDto> {
+        val seat = seatService.getById(seatId)
+        if (seat.userId == ticket.userId) {
+            // passed
+        } else if (seat.creator == ticket.userId) {
+            // passed
+        } else if (permissionService.checkPermission(ticket.userId, Permission.LOGIN_TO_ANY_SEAT)) {
+            // passed
+        } else if (seat.groupId != null && groupPermissionService.checkPermission(ticket.userId, seat.groupId!!, GroupPermission.LOGIN_TO_ANY_SEAT)) {
+            // passed
+        } else {
+            return IResponse.error(msg = "权限不足")
+        }
+
+
+        if (!vesperService.isVesperLive(seat)) {
+            return IResponse.error(msg = "vesper control 未在运行")
+        }
+
+        val portRes = vesperService.sendToVesper(VesperControlProtocols.GetVNCPort(), seat) ?: return IResponse.error(msg = "未知错误：portRes")
+        val passwordRes = vesperService.sendToVesper(VesperControlProtocols.GetVNCPassword(), seat) ?: return IResponse.error(msg = "未知错误：passwordRes")
+
+        if (portRes.code != 0 || passwordRes.code != 0) {
+            return IResponse.error(msg = "未知错误：some of the codes are not 0")
+        }
+
+        return IResponse.ok(StartVesperResponseDto(
+            vesperIP = "0.0.0.0",
+            vesperPort = portRes.msgString.toInt(),
+            vncPassword = passwordRes.msgString
+        ))
+    }
 
 
     @Operation(summary = "检查某些主机的 vesper launcher 是否正在工作。")

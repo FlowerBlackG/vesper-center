@@ -264,11 +264,26 @@ class UserController @Autowired constructor(
     @GetMapping("myPermissions")
     fun getMyPermissions(
         @RequestAttribute(SessionManager.SESSION_ATTR_KEY) sessionTicket: SessionManager.Ticket
-    ): IResponse<List<PermissionGrantEntity>> {
-        return IResponse.ok(permissionGrantMapper.selectList(
-            KtQueryWrapper(PermissionGrantEntity::class.java)
-                .eq(PermissionGrantEntity::userId, sessionTicket.userId)
-        ))
+    ): IResponse<List<Permission>> {
+        return IResponse.ok(
+            permissionGrantMapper.selectList(
+                KtQueryWrapper(PermissionGrantEntity::class.java)
+                    .eq(PermissionGrantEntity::userId, sessionTicket.userId)
+            ).map { it.permissionId }
+        )
+    }
+
+    @GetMapping("userPermissions")
+    fun getUserPermissions(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestParam targetUserId: Long
+    ): IResponse<List<Permission>> {
+        return IResponse.ok(
+            permissionGrantMapper.selectList(
+                KtQueryWrapper(PermissionGrantEntity::class.java)
+                    .eq(PermissionGrantEntity::userId, targetUserId)
+            ).map { it.permissionId }
+        )
     }
 
     /**
@@ -380,12 +395,29 @@ class UserController @Autowired constructor(
             UserEntity::id,
             UserEntity::username,
             UserEntity::createTime,
-            UserEntity::lastLoginTime
+            UserEntity::lastLoginTime,
+            UserEntity::creator,
         )
 
         resMap["permissions"] = permissionGrantMapper.selectList(
             KtQueryWrapper(PermissionGrantEntity::class.java)
                 .eq(PermissionGrantEntity::userId, targetUserId)
+        )
+
+        val creatorEntity = userService.getById(targetEntity.creator)
+        resMap["creatorEntity"] = creatorEntity?.toHashMapWithKeysEvenNull(
+            UserEntity::id,
+            UserEntity::username,
+            UserEntity::createTime,
+            UserEntity::lastLoginTime,
+        )
+
+        resMap["groupsIn"] = groupMemberService.count(
+            KtQueryWrapper(GroupMemberEntity::class.java).eq(GroupMemberEntity::userId, targetUserId)
+        )
+
+        resMap["seatsOwned"] = seatMapper.selectCount(
+            KtQueryWrapper(SeatEntity::class.java).eq(SeatEntity::userId, targetUserId)
         )
 
         return IResponse.ok(resMap)

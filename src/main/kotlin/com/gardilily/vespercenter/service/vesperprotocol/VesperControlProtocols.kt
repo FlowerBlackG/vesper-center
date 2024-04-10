@@ -31,10 +31,18 @@ class VesperControlProtocols private constructor() {
 
         override val type get() = typeCode
 
-        override val bodyLength get() = (UInt.SIZE_BYTES * 2 + msg.length).toULong()
+        override val bodyLength get() = (UInt.SIZE_BYTES * 2 + msg.size).toULong()
 
         var code = 0
-        var msg = ""
+        var msg: ByteArray = ByteArray(0)
+        val msgString: String
+            get() = String(msg)
+        val msgAsString: String
+            get() = msgString
+        val msgAsInt: Int
+            get() = ByteBuffer.wrap(msg).getInt()
+        val msgAsLong: Long
+            get() = ByteBuffer.wrap(msg).getLong()
 
         override fun decodeBody(data: ByteBuffer): Int {
 
@@ -51,9 +59,11 @@ class VesperControlProtocols private constructor() {
                 return 2
             }
 
-            msg = charset(Charsets.UTF_8.name()).decode(data).toString()
+            msg = ByteArray(msgLen)
+            data.get(msg)
             return 0
         }
+
     }
 
 
@@ -70,5 +80,35 @@ class VesperControlProtocols private constructor() {
         }
 
     }
+
+
+    class GetVNCPort : Base() {
+        companion object {
+            const val typeCode = 0x0101u
+        }
+
+        override val type get() = typeCode
+        override val bodyLength get() = 0uL
+
+        override fun encodeBody(container: ArrayList<Byte>) {
+            // do nothing.
+        }
+    }
+
+
+
+    class GetVNCPassword : Base() {
+        companion object {
+            const val typeCode = 0x0102u
+        }
+
+        override val type get() = typeCode
+        override val bodyLength get() = 0uL
+
+        override fun encodeBody(container: ArrayList<Byte>) {
+            // do nothing.
+        }
+    }
+
 
 }
