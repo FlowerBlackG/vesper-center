@@ -13,7 +13,6 @@ import com.gardilily.vespercenter.common.MacroDefines
 import com.gardilily.vespercenter.common.SessionManager
 import com.gardilily.vespercenter.dto.IResponse
 import com.gardilily.vespercenter.entity.GroupMemberEntity
-import com.gardilily.vespercenter.entity.PermissionEntity
 import com.gardilily.vespercenter.entity.PermissionEntity.Permission
 import com.gardilily.vespercenter.entity.GroupPermissionEntity.GroupPermission
 import com.gardilily.vespercenter.entity.SeatEntity
@@ -30,8 +29,6 @@ import org.springframework.web.bind.annotation.*
 import java.net.ServerSocket
 import java.sql.Timestamp
 import java.util.UUID
-import javax.swing.GroupLayout.Group
-import kotlin.random.Random
 
 @RestController
 @RequestMapping("seat")
@@ -167,7 +164,7 @@ class SeatController @Autowired constructor(
         val userId = ticket.userId
 
         // 参数检查
-        val seatId = body["seatId"] as Long? ?: return IResponse.error(msg = "seatId required.")
+        val seatId = body["seatId"]?.toString()?.toLong() ?: return IResponse.error(msg = "seatId required.")
         val name = body["name"] as String? ?: return IResponse.error(msg = "name required.")
 
         val seat = seatService.getById(seatId) ?: return IResponse.error(msg = "非法操作。")
@@ -214,7 +211,7 @@ class SeatController @Autowired constructor(
     ): IResponse<List<Any?>> {
         val userId = ticket.userId
 
-        val res = HashMap<Long, Any?>() // id -> entity
+        val res = HashMap<Long, Any?>()  // id -> entity
 
         fun addToRes(list: List<SeatEntity>) {
             list.forEach { it ->
@@ -258,6 +255,70 @@ class SeatController @Autowired constructor(
         }
 
         return IResponse.ok(res.map { it.value!! })
+    }
+
+
+    // delete seats
+
+    data class DeleteSeatRequestDto(
+        val seatIds: List<Long>
+    )
+
+    data class DeleteSeatResponseDtoEntry(
+        val seatId: Long,
+        val success: Boolean,
+        val msg: String,
+    )
+
+    @PostMapping("delete")
+    fun deleteSeats(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestBody body: DeleteSeatRequestDto
+    ): IResponse<List<DeleteSeatResponseDtoEntry>> {
+        val res = HashMap<Long, DeleteSeatResponseDtoEntry>()
+
+        for (seatId in body.seatIds) {
+            if (res.contains(seatId)) {
+                continue
+            }
+
+            val seat = seatService.getById(seatId)
+            if (seat == null) {
+                res[seatId] = DeleteSeatResponseDtoEntry(
+                    seatId = seatId, success = false, msg = "没有这个 seat"
+                )
+                continue
+            }
+
+            // permission check
+
+            var permissionDeniedReason: String? = null
+
+            if (permissionService.checkPermission(ticket, Permission.DELETE_ANY_SEAT)) {
+                // passed
+            } else if (seat.creator == ticket.userId && permissionService.checkPermission(ticket, Permission.CREATE_SEAT)) {
+                // passed
+            } else { // todo: 组内删除权限。
+                permissionDeniedReason = "权限不足"
+            }
+
+
+            if (permissionDeniedReason != null) {
+                res[seatId] = DeleteSeatResponseDtoEntry(
+                    seatId = seatId, success = false, msg = permissionDeniedReason
+                )
+                continue
+            }
+
+            // now, permission check passed.
+
+            seatService.removeSeat(seat)
+            res[seatId] = DeleteSeatResponseDtoEntry(
+                seatId = seatId, success = true, msg = "删除成功"
+            )
+        }
+
+        return IResponse.ok(res.map { it.value })
     }
 
 

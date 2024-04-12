@@ -11,7 +11,6 @@ package com.gardilily.vespercenter.controller
 import com.baomidou.mybatisplus.annotation.IEnum
 import com.baomidou.mybatisplus.extension.kotlin.KtQueryWrapper
 import com.fasterxml.jackson.annotation.JsonValue
-import com.gardilily.vespercenter.common.MacroDefines
 import com.gardilily.vespercenter.common.SessionManager
 import com.gardilily.vespercenter.dto.IResponse
 import com.gardilily.vespercenter.entity.*
@@ -27,7 +26,6 @@ import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.Parameters
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import jakarta.servlet.http.HttpSession
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.HttpStatus
 import org.springframework.transaction.annotation.Transactional
@@ -43,6 +41,7 @@ class UserController @Autowired constructor(
     val permissionMapper: PermissionMapper,
     val permissionGrantMapper: PermissionGrantMapper,
     val seatMapper: SeatMapper,
+    val seatService: SeatService,
 
     val userEntityService: UserEntityService,
     val userService: UserService,
@@ -623,6 +622,130 @@ class UserController @Autowired constructor(
         } // newUsers.forEach
 
         return IResponse.ok(resultMap)
+    }
+
+
+    data class DeleteUserRequestDto(
+        val userIds: List<Long>?,
+        val usernames: List<String>?
+    )
+
+    data class DeleteUserResultDtoEntry(
+        val userId: Long?,
+        val username: String?,
+        val success: Boolean,
+        val msg: String
+    )
+
+    /**
+     *
+     * helper function
+     */
+    private fun deleteUsers(
+        operatorUserId: Long,
+        users: List<Long>
+    ): List<DeleteUserResultDtoEntry> {
+
+        val res = HashMap<Long, DeleteUserResultDtoEntry>()
+
+        for (userId in users) {
+            if (res.contains(userId)) {
+                continue
+            }
+
+            val user = userService.getById(userId)
+            if (user == null) {
+                res[userId] = DeleteUserResultDtoEntry(
+                    success = false,
+                    msg = "查无此人",
+                    username = null,
+                    userId = userId
+                )
+                continue
+            }
+
+            if (user.id == operatorUserId) {
+                res[userId] = DeleteUserResultDtoEntry(
+                    success = false,
+                    msg = "不许删自己！",
+                    username = user.username!!,
+                    userId = userId
+                )
+                continue
+            }
+
+            // check permission
+            if (permissionService.checkPermission(operatorUserId, Permission.DELETE_ANY_USER)) {
+                // passwd
+            } else if (
+                permissionService.checkPermission(operatorUserId, Permission.CREATE_AND_DELETE_USER)
+                && operatorUserId == user.creator
+            ) {
+                // passed
+            } else {
+                res[userId] = DeleteUserResultDtoEntry(
+                    success = false,
+                    msg = "无权限",
+                    username = user.username!!,
+                    userId = userId
+                )
+                continue
+            }
+
+
+            // 执行到这里，允许删除该用户。
+            userService.removeUser(user)
+
+            res[userId] = DeleteUserResultDtoEntry(
+                success = true,
+                msg = "已删除",
+                username = user.username!!,
+                userId = userId
+            )
+        }
+
+        return res.map { it.value }
+    }
+
+    @Operation(summary = "批量删除用户。usernames 和 userIds 二选一。")
+    @PostMapping("deleteUsers")
+    fun deleteUsers(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestBody body: DeleteUserRequestDto
+    ): IResponse<List<DeleteUserResultDtoEntry>> {
+        return if (body.userIds != null) {
+            IResponse.ok(
+                this.deleteUsers(ticket.userId, body.userIds)
+            )
+        } else if (body.usernames != null) {
+            val userIds = ArrayList<Long>()
+
+            val notFoundUsers = HashMap<String, DeleteUserResultDtoEntry>()  // username -> resObj
+
+            for (username in body.usernames) {
+                val user = userService.getOne(
+                    KtQueryWrapper(UserEntity::class.java).eq(UserEntity::username, username)
+                )
+
+                if (user == null) {
+                    notFoundUsers[username] = DeleteUserResultDtoEntry(
+                        userId = null,
+                        username = username,
+                        success = false,
+                        msg = "查无此人"
+                    )
+                    continue
+                }
+
+                userIds.add(user.id!!)
+            }
+
+            IResponse.ok(
+                this.deleteUsers(ticket.userId, userIds) + notFoundUsers.map { it.value }
+            )
+        } else {
+            IResponse.ok(emptyList())
+        }
     }
 
 }

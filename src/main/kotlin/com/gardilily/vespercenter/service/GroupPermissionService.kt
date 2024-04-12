@@ -101,4 +101,25 @@ class GroupPermissionService @Autowired constructor(
     ) = checkPermission(user.id!!, group.id!!, permission)
 
 
+    fun clearAllPermissions(
+        user: UserEntity,
+        group: UserGroupEntity?
+    ) {
+        clearAllPermissions(user.id!!, group?.id)
+    }
+
+    fun clearAllPermissions(
+        userId: Long,
+        groupId: Long?
+    ) {
+        val query = KtQueryWrapper(GroupPermissionGrantEntity::class.java)
+            .eq(GroupPermissionGrantEntity::userId, userId)
+
+        if (groupId != null) {
+            query.eq(GroupPermissionGrantEntity::groupId, groupId)
+        }
+
+        groupPermissionGrantMapper.delete(query)
+    }
+
 }

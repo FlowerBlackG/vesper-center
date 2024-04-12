@@ -20,7 +20,7 @@ GRANT_PERMISSION
 permission:
 100
 CREATE_AND_DELETE_USER
-创建和删除用户
+创建和删除自己创建的用户
 
 
 permission:
@@ -61,6 +61,12 @@ permission:
 300
 CREATE_GROUP
 创建组。包含删除自己组的权限。创建后，自动获取组内一切权限。
+
+
+permission:
+301
+MODIFY_ANY_GROUP_MEMBERS_PERMISSION
+编辑任意组的组内成员权限。
 
 
 --------------------------------

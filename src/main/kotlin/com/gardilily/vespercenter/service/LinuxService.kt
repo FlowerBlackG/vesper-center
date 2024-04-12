@@ -21,6 +21,9 @@ import java.io.BufferedWriter
 import java.io.File
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
+import kotlin.contracts.ExperimentalContracts
+import kotlin.contracts.InvocationKind
+import kotlin.contracts.contract
 
 
 @Service
@@ -50,6 +53,20 @@ class LinuxService @Autowired constructor(
                     BufferedReader(InputStreamReader(this.inputStream)),
                     BufferedWriter(OutputStreamWriter(this.outputStream))
                 )
+            }
+
+
+            private fun Process.useIO(block: (BufferedReader, BufferedWriter) -> Unit) {
+
+                // get io
+                val (reader, writer) = this.getIO()
+
+                // call
+                block(reader, writer)
+
+                // close
+                reader.close()
+                writer.close()
             }
 
 
@@ -228,8 +245,27 @@ class LinuxService @Autowired constructor(
                 return name
             }
 
-        } // companion object of private class Commands
-    } // private class Commands
+
+            /**
+             *
+             * https://stackoverflow.com/questions/9229333/how-to-get-overall-cpu-usage-e-g-57-on-linux
+             */
+            fun getCpuUsage(): Double {
+                val p = getProcessBuilder(
+                    "cat <(grep 'cpu ' /proc/stat) <(sleep 1 && grep 'cpu ' /proc/stat) | awk -v RS=\"\" '{printf \"%f\", (\$13-\$2+\$15-\$4)*100/(\$13-\$2+\$15-\$4+\$16-\$5)}'"
+                ).start()
+
+                var res = 0.0
+
+                p.useIO { reader, _ ->
+                    res = reader.readLine().toDouble()
+                }
+
+                return res
+            }
+
+        } // companion object of private class Shell
+    } // private class Shell
 
 
     fun createUser(
@@ -358,6 +394,10 @@ class LinuxService @Autowired constructor(
             swapUsed = swap[1],
             swapFree = swap[2]
         )
+    }
+
+    fun getSystemCpuLoad(): Double {
+        return Shell.getCpuUsage()
     }
 
 

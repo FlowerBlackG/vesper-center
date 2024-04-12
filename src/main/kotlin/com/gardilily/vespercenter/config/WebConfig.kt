@@ -23,7 +23,9 @@ class WebConfig @Autowired constructor(
                 "http://localhost:3000",
                 "https://vesper-front.gardilily.com",
                 "http://localhost:13287",
-                "https://flowerblackg.github.io"
+                "https://flowerblackg.github.io",
+                "http://vesper-system.pages.tongji.edu.cn",
+                "https://vesper-system.pages.tongji.edu.cn",
             )
             .allowCredentials(false)
             .allowedMethods("*")

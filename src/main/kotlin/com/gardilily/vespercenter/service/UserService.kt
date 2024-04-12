@@ -20,8 +20,22 @@ import org.springframework.util.DigestUtils
 
 @Service
 class UserService @Autowired constructor(
+    val userGroupService: UserGroupService,
+    val permissionService: PermissionService,
+    val groupMemberService: GroupMemberService,
+    val seatService: SeatService
 
 ) : ServiceImpl<UserMapper, UserEntity>() {
 
+    fun removeUser(userId: Long) {
+        userGroupService.removeUserFromAllGroups(userId, false)
+        permissionService.clearAllPermissions(userId)
+        seatService.removeSeatsOf(userId)
+        this.removeById(userId)
+    }
+
+    fun removeUser(user: UserEntity) {
+        removeUser(user.id!!)
+    }
 
 }

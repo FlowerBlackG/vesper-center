@@ -14,7 +14,6 @@ import jakarta.annotation.PreDestroy
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import jakarta.servlet.http.HttpSession
 import org.json.JSONObject
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
@@ -25,7 +24,6 @@ import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 import kotlin.collections.HashMap
 import kotlin.random.Random
-import kotlin.reflect.full.createInstance
 import kotlin.text.HexFormat
 
 @Slf4k
@@ -34,32 +32,36 @@ class SessionManager @Autowired constructor(
     val vesperCenterProperties: VesperCenterProperties
 ) {
 
+    /* 定义键 */
+    companion object {
+        const val VERSION = 1
+
+        const val HTTP_HEADER_KEY = "vesper-session"
+        const val SESSION_ATTR_KEY = "vesper-session"
+    }
+
 
     /* 对外方法 */
     fun doFilter(request: HttpServletRequest, response: HttpServletResponse, chain: FilterChain) {
         val token: String? = request.getHeader(HTTP_HEADER_KEY)
-        val userId = getUserIdFrom(token)
 
         run {
-            if (token == null || userId == null) {
+            if (token == null) {
                 return@run
             }
 
-            if (!ticketLocker.contains(userId)) {
+            if (!ticketLocker.contains(token)) {
                 return@run
             }
 
-            val ticket = ticketLocker[userId]!!
+            val ticket = ticketLocker[token]!!
             if (ticket.expired) {
-                ticketLocker.remove(userId)
+                ticketLocker.remove(token)
                 return@run
             }
 
-            if (ticket.key != token) {
-                return@run
-            }
 
-            // ticket 存在且未过期
+            // 运行到这里，表明 ticket 存在且未过期
 
             ticket.refreshLife()
             request.setAttribute(SESSION_ATTR_KEY, ticket)
@@ -71,26 +73,15 @@ class SessionManager @Autowired constructor(
 
     fun addSession(userId: Long): String {
         val session = createSessionData(userId)
-        ticketLocker[userId] = session
+        ticketLocker[session.key] = session
         return session.key
     }
 
 
     fun remove(token: String): Boolean {
-        return ticketLocker.remove(getUserIdFrom(token)) != null
+        return ticketLocker.remove(token) != null
     }
 
-
-    fun remove(userId: Long): Boolean {
-        return ticketLocker.remove(userId) != null
-    }
-
-
-    /* 定义键 */
-    companion object {
-        const val HTTP_HEADER_KEY = "vesper-session"
-        const val SESSION_ATTR_KEY = "vesper-session"
-    }
 
     /* 内部方法 */
     @OptIn(ExperimentalStdlibApi::class)
@@ -131,7 +122,7 @@ class SessionManager @Autowired constructor(
     }
 
     private fun getTicket(token: String): Ticket? {
-        return ticketLocker[getUserIdFrom(token)]
+        return ticketLocker[token]
     }
 
 
@@ -235,11 +226,20 @@ class SessionManager @Autowired constructor(
         private val dumpAlgorithm = "AES/CBC/PKCS5Padding"
 
         private companion object {
-            const val DUMP_MAGIC = "tklkr"
+            const val DUMP_MAGIC = "chiikawa"
         }
 
-        private val locker = HashMap<Long, Ticket>()
+        private val locker = HashMap<String, Ticket>()
 
+        /**
+         *
+         * 文件存储结构：
+         *     经过加密的串。
+         *     原始内容：
+         *         line 1: ticket locker's DUMP_MAGIC
+         *         line 2: session mgr's VERSION
+         *         line 3 .. (n+2): (n-2)'s ticket
+         */
         fun dumpToFile(): Boolean {
             if (dumpPath == null) {
                 return false
@@ -254,13 +254,13 @@ class SessionManager @Autowired constructor(
             file.createNewFile()
 
             val txtBuilder = StringBuilder(DUMP_MAGIC)
-            for (it in locker) {
-                if (txtBuilder.length > DUMP_MAGIC.length) {
-                    txtBuilder.append("\n")
-                }
+                .append('\n')
+                .append(VERSION)
+                .append('\n')
 
+            for (it in locker) {
                 val ticket = it.value
-                txtBuilder.append(ticket)
+                txtBuilder.append(ticket).append('\n')
             }
 
             val txt = if (dumpAesKey != null) {
@@ -303,25 +303,31 @@ class SessionManager @Autowired constructor(
                     txtRaw
                 }
 
-                if (!txt.startsWith(DUMP_MAGIC)) {
+                val txtLines = txt.split('\n').toMutableList()
+
+                // check magic
+                if (txtLines.removeFirstOrNull() != DUMP_MAGIC) {
                     log.error("magic mismatch! failed to load from file.")
                     return false
                 }
 
-                txt.substring(DUMP_MAGIC.length)
-                    .replace("\r", "")
-                    .split("\n")
-                    .forEach { line ->
+                // check version
+                if (txtLines.firstOrNull() != VERSION.toString()) {
+                    log.error("version ${txtLines.firstOrNull()} is not compatible with current: $VERSION.")
+                    return false
+                }
+                txtLines.removeFirstOrNull()
 
-                        if (line.isBlank()) {
-                            return@forEach
-                        }
-
-                        val ticket = Ticket.fromString(line, sessionMgr)
-                        if (ticket != null) {
-                            locker[ticket.userId] = ticket
-                        }
+                txtLines.forEach { line ->
+                    if (line.isBlank()) {
+                        return@forEach
                     }
+
+                    val ticket = Ticket.fromString(line, sessionMgr)
+                    if (ticket != null) {
+                        locker[ticket.key] = ticket
+                    }
+                }
 
                 log.info("loaded ticket-locker from file: ${file.absolutePath}")
             } catch (e: Exception) {
@@ -335,14 +341,14 @@ class SessionManager @Autowired constructor(
         } // fun loadFromFile
 
 
-        operator fun get(key: Long?): Ticket? {
+        operator fun get(key: String?): Ticket? {
             if (key == null) {
                 return null
             }
             return locker[key]
         }
 
-        operator fun set(key: Long?, value: Ticket?) {
+        operator fun set(key: String?, value: Ticket?) {
             if (key == null) {
                 return
             }
@@ -354,7 +360,7 @@ class SessionManager @Autowired constructor(
             }
         }
 
-        fun remove(key: Long?): Ticket? {
+        fun remove(key: String?): Ticket? {
             return if (key == null) {
                 null
             } else {
@@ -362,7 +368,7 @@ class SessionManager @Autowired constructor(
             }
         }
 
-        fun contains(key: Long?): Boolean {
+        fun contains(key: String?): Boolean {
             if (key == null) {
                 return false
             }

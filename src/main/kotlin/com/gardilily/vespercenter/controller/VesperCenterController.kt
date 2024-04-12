@@ -53,4 +53,9 @@ class VesperCenterController @Autowired constructor(
         return IResponse.ok(linuxService.getSystemMemoryUsage())
     }
 
+    @GetMapping("cpuUsage")
+    fun getCpuUsage(): IResponse<Double> {
+        return IResponse.ok(linuxService.getSystemCpuLoad())
+    }
+
 }
