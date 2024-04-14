@@ -29,3 +29,13 @@ Wayland 图形合成器 & 窗口管理；VNC 远程桌面服务器。
 ## 使用手册
 
 [系统手册](./doc/system-manual.md)
+
+## 必备的环境变量
+
+### VESPER_CENTER_TICKET_LOCKER_DUMP_PATH
+
+设为 `none` 以禁用。
+
+### VESPER_CENTER_DB_USERNAME
+
+### VESPER_CENTER_DB_PASSWORD

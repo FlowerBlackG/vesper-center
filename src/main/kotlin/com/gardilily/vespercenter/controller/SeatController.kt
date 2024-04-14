@@ -207,9 +207,11 @@ class SeatController @Autowired constructor(
     )
     @GetMapping("seats")
     fun getSeats(
-        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestParam groupId: Long?
     ): IResponse<List<Any?>> {
         val userId = ticket.userId
+
 
         val res = HashMap<Long, Any?>()  // id -> entity
 
@@ -230,6 +232,31 @@ class SeatController @Autowired constructor(
                 )
             }
         } // fun addToRes
+
+
+        // 群组模式。
+        if (groupId != null) {
+
+            val isMemberQuery = KtQueryWrapper(GroupMemberEntity::class.java)
+                .eq(GroupMemberEntity::userId, ticket.userId)
+                .eq(GroupMemberEntity::groupId, groupId)
+
+            if (!groupMemberService.exists(isMemberQuery)) {
+                return IResponse.error(msg = "无权限")
+            }
+
+            addToRes(
+                seatService.baseMapper.selectList(
+                    KtQueryWrapper(SeatEntity::class.java)
+                        .eq(SeatEntity::groupId, groupId)
+                )
+            )
+
+            return IResponse.ok(res.map { it.value })
+        }
+
+
+        // 无群组模式
 
         // 我的 seat
         val mySeats = seatService.baseMapper.selectList(

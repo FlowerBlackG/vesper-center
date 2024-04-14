@@ -216,32 +216,80 @@ class GroupController @Autowired constructor(
     }
 
 
-    /**
-     *
-     * 参数：
-     *   groupId: Long
-     *   users: List<Long>
-     */
-    @Operation(summary = "将用户添加到群组")
-    @Parameters(
-        Parameter(name = "groupId", description = "目标群组id"),
-        Parameter(name = "users", description = "用户id列表")
+    data class AddUsersRequestBody(
+        val groupId: Long,
+        val usernames: List<String>?,
+        val userIds: List<Long>?,
     )
+    data class AddUsersResultEntry(
+        val userId: Long? = null,
+        val username: String? = null,
+        val success: Boolean,
+        val msg: String
+    )
+    @Operation(summary = "将用户添加到群组")
     @PostMapping("addUsers")
     fun addUsers(
         @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
-        @RequestBody body: HashMap<String, Any>
-    ): IResponse<Unit> {
-
-        val groupId = body["groupId"] as Long? ?: return IResponse.error(msg = "groupId required.")
-        val users = body["users"] as List<Long>? ?: return IResponse.error(msg = "users required.")
-
-        val group = userGroupService.getById(groupId) ?: return IResponse.error(msg = "没有这个组。")
+        @RequestBody body: AddUsersRequestBody
+    ): IResponse<List<AddUsersResultEntry>> {
+        val groupId = body.groupId
+        userGroupService.getById(groupId) ?: return IResponse.error(msg = "没有这个组。")
         groupPermissionService.ensurePermission(ticket.userId, groupId, GroupPermission.ADD_OR_REMOVE_USER)
 
-        groupMemberService.addUsersToGroup(users, groupId)
+        val res = ArrayList<AddUsersResultEntry>()
+        val users = if (body.userIds != null) {
+            body.userIds.mapNotNull {
+                val user = userService.getById(it)
+                if (user == null) {
+                    res.add(AddUsersResultEntry(userId = it, success = false, msg = "没有这个用户"))
+                    null
+                } else {
+                    user
+                }
+            }
+        } else if (body.usernames != null) {
+            body.usernames.mapNotNull { username ->
+                val user = userService.getOne(KtQueryWrapper(UserEntity::class.java).eq(UserEntity::username, username))
+                if (user == null) {
+                    res.add(AddUsersResultEntry(username = username, success = false, msg = "没有这个用户"))
+                    null
+                } else {
+                    user
+                }
+            }
+        } else {
+            return IResponse.error()
+        }
 
-        return IResponse.ok()
+        for (user in users) {
+            val existQuery = KtQueryWrapper(GroupMemberEntity::class.java)
+                .eq(GroupMemberEntity::userId, user.id!!)
+                .eq(GroupMemberEntity::groupId, groupId)
+            if (groupMemberService.exists(existQuery)) {
+                res.add(AddUsersResultEntry(
+                    userId = user.id!!,
+                    username = user.username!!,
+                    success = false,
+                    msg = "已经在组内"
+                ))
+                continue
+            }
+
+            groupMemberMapper.insert(GroupMemberEntity(
+                userId = user.id!!,
+                groupId = groupId,
+            ))
+
+            res.add(AddUsersResultEntry(
+                userId = user.id!!,
+                username = user.username!!,
+                success = true,
+                msg = "添加成功"
+            ))
+        }
+
+        return IResponse.ok(res)
     }
 
 
@@ -345,6 +393,29 @@ class GroupController @Autowired constructor(
         // todo: 还需添加的功能：管理员看自己不在的组
 
         return IResponse.ok(res.map { it.value!! })
+    }
+
+
+    @GetMapping("info")
+    fun getGroupInfo(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestParam groupId: Long
+    ): IResponse<Map<String, *>> {
+        val group = userGroupService.getById(groupId) ?: return IResponse.error()
+
+        val res = group.toHashMapWithKeysEvenNull(
+            UserGroupEntity::id, UserGroupEntity::groupName, UserGroupEntity::note, UserGroupEntity::createTime
+        )
+
+        res["membersCount"] = groupMemberService.count(
+            KtQueryWrapper(GroupMemberEntity::class.java).eq(GroupMemberEntity::groupId, groupId)
+        )
+
+        res["seatsCount"] = seatService.count(
+            KtQueryWrapper(SeatEntity::class.java).eq(SeatEntity::groupId, groupId)
+        )
+
+        return IResponse.ok(res)
     }
 
 }

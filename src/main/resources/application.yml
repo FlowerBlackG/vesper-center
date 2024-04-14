@@ -9,14 +9,14 @@ vesper-center:
     ticket-locker-file:
       # vesper center 停止时，缓存 ticket locker 的位置。
       # 设为 'none' 以禁用缓存。
-      dump-path: '/home/flowerblack/Desktop/vesper-center-session.txt'
+      dump-path: ${VESPER_CENTER_TICKET_LOCKER_DUMP_PATH:none}
       dump-key: '0123456789abcdef'
 
 spring:
   datasource:
     url: jdbc:mariadb://localhost:3306/vesper-center
-    username: flowerblack
-    password: 123456
+    username: ${VESPER_CENTER_DB_USERNAME}
+    password: ${VESPER_CENTER_DB_PASSWORD}
 
   servlet:
     multipart:

@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="VesperCenterApplicationKt" type="JetRunConfigurationType" nameIsGenerated="true">
+    <envs>
+      <env name="VESPER_CENTER_DB_PASSWORD" value="123456" />
+      <env name="VESPER_CENTER_DB_USERNAME" value="flowerblack" />
+      <env name="VESPER_CENTER_TICKET_LOCKER_DUMP_PATH" value="/home/flowerblack/Desktop/vesper-center-session.txt" />
+    </envs>
+    <option name="MAIN_CLASS_NAME" value="com.gardilily.vespercenter.VesperCenterApplicationKt" />
+    <module name="vesper-center.main" />
+    <shortenClasspath name="NONE" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
