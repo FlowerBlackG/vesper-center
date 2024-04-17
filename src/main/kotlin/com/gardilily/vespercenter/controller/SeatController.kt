@@ -413,9 +413,18 @@ class SeatController @Autowired constructor(
     ): IResponse<StartVesperResponseDto> {
         val userId = ticket.userId
         // 参数非空检查。
-        val seatId = (body["seatId"] as Int?)?.toLong() ?: return IResponse.error(msg = "seatId required.")
+        val seatId = body["seatId"]?.toString()?.toLong() ?: return IResponse.error(msg = "seatId required.")
         val seat = seatService.getById(seatId) ?: return IResponse.error(msg = "错误1。")
-        val execCmds = body["execCmds"] as String? ?: "2,7,7,konsoledolphin"
+
+        val execApps = listOf("konsole", "dolphin")
+        val execCmdsBuilder = StringBuilder()
+        execApps.forEach {
+            if (execCmdsBuilder.isNotBlank()) {
+                execCmdsBuilder.append(", ")
+            }
+            execCmdsBuilder.append(it)
+        }
+        val execCmds = execCmdsBuilder.toString()
 
         // 权限检查。
         if (seat.userId != userId) {

@@ -8,6 +8,7 @@
 
 package com.gardilily.vespercenter.service
 
+import com.gardilily.vespercenter.common.MacroDefines
 import com.gardilily.vespercenter.entity.SeatEntity
 import com.gardilily.vespercenter.entity.UserEntity
 import com.gardilily.vespercenter.utils.Slf4k
@@ -73,9 +74,10 @@ class LinuxService @Autowired constructor(
             fun useradd(
                 username: String,
                 createHome: Boolean = true,
-                skeletonDirectory: String? = null
+                skeletonDirectory: String? = null,
             ): Int {
                 val cmd = StringBuilder("sudo useradd $username")
+                    .append(" --shell $BASH")
                 if (createHome) {
                     cmd.append(" -m")
                 }
@@ -264,9 +266,57 @@ class LinuxService @Autowired constructor(
                 return res
             }
 
+
+            fun echo(
+                sudo: Boolean,
+                txt: String,
+                filePath: String?,
+                append: Boolean,
+            ) {
+                val cmd = StringBuilder()
+                if (sudo) {
+                    cmd.append("sudo ")
+                }
+                cmd.append("echo")
+                    .append(' ')
+                    .append("\'${txt}\'")
+
+                if (filePath != null) {
+                    cmd.append(" |")
+                    if (sudo) {
+                        cmd.append(" sudo")
+                    }
+                    cmd.append(" tee")
+                    if (append) {
+                        cmd.append(" -a")
+                    }
+                    cmd.append(' ').append(filePath)
+                }
+
+                val p = getProcessBuilder(cmd).start()
+                p.waitFor()
+            }
+
         } // companion object of private class Shell
     } // private class Shell
 
+
+    private fun addSetXdgRuntimeDirToBashRC(linuxLoginName: String) {
+        val fPath = "/home/$linuxLoginName/.bashrc"
+        val cmd = "export XDG_RUNTIME_DIR=/run/user/\$UID"
+
+        Shell.echo(sudo = true, append = true, txt = cmd, filePath = fPath)
+    }
+
+    private fun addLaunchVesperLauncherToBashRC(linuxLoginName: String) {
+
+        val fPath = "/home/$linuxLoginName/.bashrc"
+        val cmd = StringBuilder("vesper-launcher --daemonize")
+            .append(" --domain-socket ${MacroDefines.Vesper.LAUNCHER_SOCK}")
+            .append(" > /home/$linuxLoginName/vesper-launcher.log")
+
+        Shell.echo(sudo = true, append = true, txt = cmd.toString(), filePath = fPath)
+    }
 
     fun createUser(
         username: String,
@@ -291,8 +341,6 @@ class LinuxService @Autowired constructor(
         val passwdLines = File(PASSWD_FILE).readLines()
         var uid = null as Int?
         for (it in passwdLines) {
-
-
             val segments = it.split(':')
             val name = segments[0]
             val thisUid = segments[2].toInt()
@@ -302,9 +350,15 @@ class LinuxService @Autowired constructor(
             }
         }
 
-        if (uid == null) {
+        if (uid == null) {  // 创建失败
             Shell.userdel(username, force = true)
+        } else {  // 创建成功
+            if (skeletonDirectory == null) {
+                addSetXdgRuntimeDirToBashRC(username)
+                addLaunchVesperLauncherToBashRC(username)
+            }
         }
+
         return uid
     } // fun createUser
 
