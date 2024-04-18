@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.io.File
 import java.lang.management.ManagementFactory
 
 @RestController
@@ -30,9 +31,10 @@ class TestController @Autowired constructor(
         return IResponse.ok()
     }
 
-    @GetMapping("send")
-    fun send() {
-        vesperService.sendToVesper(VesperControlProtocols.GetVNCPort(), "/run/user/1000/vesper.sock")
+    @GetMapping("log")
+    fun showLog(): IResponse<Any> {
+        val f = File("/home/flowerblack/Desktop/MyFiles/code-repo/vesper/target/vlog.log")
+        return IResponse.ok(f.readLines())
     }
 
     @GetMapping("cpu")

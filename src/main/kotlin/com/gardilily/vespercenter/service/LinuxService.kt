@@ -313,6 +313,8 @@ class LinuxService @Autowired constructor(
         val fPath = "/home/$linuxLoginName/.bashrc"
         val cmd = StringBuilder("vesper-launcher --daemonize")
             .append(" --domain-socket ${MacroDefines.Vesper.LAUNCHER_SOCK}")
+            .append(" --quit-if-vesper-ctrl-live")
+            .append(" --vesper-ctrl-sock-addr ${MacroDefines.Vesper.CONTROL_SOCK}")
             .append(" > /home/$linuxLoginName/vesper-launcher.log")
 
         Shell.echo(sudo = true, append = true, txt = cmd.toString(), filePath = fPath)
