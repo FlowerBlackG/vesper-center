@@ -21,42 +21,40 @@ titles = {
 
 
 def gen_sql_mkdatabase_code(permissions: list[Permission], titles):
-    for it in permissions:
-        print(f'insert ignore into {titles["sql"]} (id, enum_key, note)')
-        print(f'    values ({it.id}, \'{it.enum_key}\', \'{it.note}\');')
-        print('')
-    print('')
+    with open(f'./{titles["sql"]}.sql.gen', 'w') as f:
+        for it in permissions:
+            f.write(f'insert ignore into {titles["sql"]} (id, enum_key, note)\n')
+            f.write(f'    values ({it.id}, \'{it.enum_key}\', \'{it.note}\');\n')
 
 
 def gen_kt_permission_def_code(permissions: list[Permission], titles):
-    print('--- kt permission def:  ---')
-    print('        UNDEFINED(0),')
-    for it in permissions:
-        print('')
-        print('        /**')
-        print('         * ' + it.note)
-        print('         */')
-        print(f'        {it.enum_key}({it.id}),')
-    print('')
+    with open(f'./{titles["kt"]}.kt.gen', 'w') as f:
+        f.write('        UNDEFINED(0),\n')
+        for it in permissions:
+            f.write('\n')
+            f.write('        /**\n')
+            f.write('         * ' + it.note + '\n')
+            f.write('         */\n')
+            f.write(f'        {it.enum_key}({it.id}),\n')
+
 
 
 def gen_kt_superuser_grant_code(permissions: list[Permission], titles):
-    print('--- kt superuser grant: UserController::createSuperUser ---')
-    for it in permissions:
-        print(f'{" " * 12}{titles["kt"]}.{it.enum_key},')
-    print('')
+    with open(f'./kt-superuser-grant-{titles["kt"]}.kt.gen', 'w') as f:
+        for it in permissions:
+            f.write(f'{" " * 12}{titles["kt"]}.{it.enum_key},\n')
 
 
 def gen_ts_permission_def_code(permissions: list[Permission], titles):
-    print('--- ts permission def: api/Permissions.ts ---')
-    print('    UNDEFINED = 0,')
-    for it in permissions:
-        print('')
-        print('    /**')
-        print('     * ' + it.note)
-        print('     */')
-        print(f'    {it.enum_key} = {it.id},')
-    print('')
+    with open(f'./{titles["kt"]}.ts.gen', 'w') as f:
+        f.write('    UNDEFINED = 0,\n')
+        for it in permissions:
+            f.write('\n')
+            f.write('    /**\n')
+            f.write('     * ' + it.note + '\n')
+            f.write('     */\n')
+            f.write(f'    {it.enum_key} = {it.id},\n')
+
 
 
 def gen_code(permissions: list[Permission], titles):
@@ -87,14 +85,25 @@ def process(lines: list[str], key: str, titles):
 def get_permissions(lines: list[str], key: str) -> list[Permission]:
     permissions: list[Permission] = []
 
+    id_set = set()
+
     idx = 0
     while idx < len(lines):
         line = lines[idx]
         idx += 1
 
         if line.startswith(key):
+
+            id = int(lines[idx])
+            print(f'{key} found: {id} {lines[idx+1]} {lines[idx+2]}')
+            
+            if id in id_set:
+                print(f'[error] duplicated id: {id}')
+                exit(-1)
+            id_set.add(id)
+
             permissions.append(Permission(
-                id=int(lines[idx]),
+                id=id,
                 enum_key=lines[idx+1],
                 note=lines[idx+2]
             ))
@@ -126,11 +135,10 @@ def main():
 
     for method in methods:
         method(global_permissions, titles['permission'])
-        print('\n' * 2)
         method(group_permissions, titles['group-permission'])
-        print('\n' * 4)
-        print('* ==== +++ () +++ ==== ****** ==== +++ () +++ ==== *')
-        print('\n' * 4)
+        print(f'{method.__name__} done.')
+    
+    print('all done.')
 
 
 if __name__ == '__main__':

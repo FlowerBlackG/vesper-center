@@ -111,7 +111,7 @@ class SeatController @Autowired constructor(
                 userId = uid,
                 groupId = group,
                 creator = ticket.userId,
-                enabled = 1,
+                seatEnabled = 1,
                 note = note,
                 linuxUid = -1,
                 linuxLoginName = "/",
@@ -136,7 +136,7 @@ class SeatController @Autowired constructor(
                     groupId = group,
                     seatInfo = seatEntity.toHashMapWithKeysEvenNull(
                         SeatEntity::id, SeatEntity::userId, SeatEntity::creator,
-                        SeatEntity::enabled, SeatEntity::nickname, SeatEntity::note,
+                        SeatEntity::seatEnabled, SeatEntity::nickname, SeatEntity::note,
                         SeatEntity::linuxUid, SeatEntity::linuxLoginName,
                         SeatEntity::createTime, SeatEntity::lastLoginTime
                     )
@@ -202,13 +202,18 @@ class SeatController @Autowired constructor(
      * todo: 分页查询
      */
     @Operation(
-        summary = "获取用户可以看到的主机列表。包含用户自己的主机，以及用户有权管理的主机。" +
-                "注意，本接口不返回某组内可管理的主机表。"
+        summary = "获取主机列表。",
+        description = "传入 groupId 以启用群组模式。<br/>" +
+                "非群组模式下，返回本人可用的主机及有权管理的主机。<br/>" +
+                "根据是否传入 viewAllSeatsInGroup 决定是否查看全组主机。<br/>" +
+                "若输入 alsoSeatsInNonGroupMode 值为 true，将同时返回群组模式和非群组模式下的结果。"
     )
     @GetMapping("seats")
     fun getSeats(
         @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
-        @RequestParam groupId: Long?
+        @RequestParam groupId: Long?,
+        @RequestParam alsoSeatsInNonGroupMode: Boolean?,
+        @RequestParam viewAllSeatsInGroup: Boolean?
     ): IResponse<List<Any?>> {
         val userId = ticket.userId
 
@@ -226,7 +231,7 @@ class SeatController @Autowired constructor(
 
                 res[id] = entity.toHashMapWithKeysEvenNull(
                     SeatEntity::id, SeatEntity::userId, SeatEntity::creator, SeatEntity::nickname,
-                    SeatEntity::enabled, SeatEntity::groupId, SeatEntity::note,
+                    SeatEntity::seatEnabled, SeatEntity::groupId, SeatEntity::note,
                     SeatEntity::linuxUid, SeatEntity::linuxLoginName, SeatEntity::createTime,
                     SeatEntity::lastLoginTime
                 )
@@ -245,15 +250,40 @@ class SeatController @Autowired constructor(
                 return IResponse.error(msg = "无权限")
             }
 
-            addToRes(
-                seatService.baseMapper.selectList(
-                    KtQueryWrapper(SeatEntity::class.java)
-                        .eq(SeatEntity::groupId, groupId)
+            if (viewAllSeatsInGroup != null && viewAllSeatsInGroup) {
+                addToRes(
+                    seatService.baseMapper.selectList(
+                        KtQueryWrapper(SeatEntity::class.java)
+                            .eq(SeatEntity::groupId, groupId)
+                    )
                 )
-            )
 
-            return IResponse.ok(res.map { it.value })
-        }
+            } else {
+                // 仅查看自己可以管理的。
+
+                if (groupPermissionService.checkPermission(ticket.userId, groupId, GroupPermission.LOGIN_TO_ANY_SEAT)) {
+                    addToRes(
+                        seatService.baseMapper.selectList(
+                            KtQueryWrapper(SeatEntity::class.java)
+                                .eq(SeatEntity::groupId, groupId)
+                        )
+                    )
+                } else {
+                    addToRes(
+                        seatService.baseMapper.selectList(
+                            KtQueryWrapper(SeatEntity::class.java)
+                                .eq(SeatEntity::groupId, groupId)
+                                .eq(SeatEntity::userId, ticket.userId)
+                        )
+                    )
+                }
+
+            }
+
+            if (alsoSeatsInNonGroupMode == null || !alsoSeatsInNonGroupMode) {
+                return IResponse.ok(res.map { it.value })
+            }
+        } // if (groupId != null)
 
 
         // 无群组模式
@@ -374,7 +404,7 @@ class SeatController @Autowired constructor(
         }
 
         // 权限检查
-        if (seat.userId != userId) {
+        if (!seatService.canLogin(userId, seat)) {
             return IResponse.error(msg = "启动失败（错误2）。")
         }
 
@@ -427,8 +457,8 @@ class SeatController @Autowired constructor(
         val execCmds = execCmdsBuilder.toString()
 
         // 权限检查。
-        if (seat.userId != userId) {
-            return IResponse.error(msg = "错误2。")
+        if (!seatService.canLogin(userId, seat)) {
+            return IResponse.error(msg = "拒绝登录。")
         }
 
         // 检查 vesper launcher 是否在运行。
@@ -626,7 +656,7 @@ class SeatController @Autowired constructor(
 
         val res = seat.toHashMapWithKeysEvenNull(
             SeatEntity::id, SeatEntity::userId, SeatEntity::groupId,
-            SeatEntity::creator, SeatEntity::enabled, SeatEntity::nickname,
+            SeatEntity::creator, SeatEntity::seatEnabled, SeatEntity::nickname,
             SeatEntity::note, SeatEntity::linuxUid,
             SeatEntity::linuxLoginName, SeatEntity::createTime, SeatEntity::lastLoginTime
         )

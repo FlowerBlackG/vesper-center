@@ -25,6 +25,7 @@ data class GroupPermissionEntity(
     enum class GroupPermission(@JsonValue val enumValue: Long) : IEnum<Long> {
 
 
+
         UNDEFINED(0),
 
         /**
@@ -38,31 +39,39 @@ data class GroupPermissionEntity(
         DROP_GROUP(2),
 
         /**
-         * 将用户移入或移出组。
+         * 将用户移入或移出组
          */
         ADD_OR_REMOVE_USER(100),
 
         /**
-         * 在组内创建主机，以及删除组内任意主机。
+         * 在组内创建主机，以及删除组内任意主机
          */
         CREATE_OR_DELETE_SEAT(200),
 
         /**
-         * 编辑组内任意 seat 的名字。
+         * 编辑组内任意 seat 的名字
          */
         NAME_ANY_SEAT(201),
 
         /**
-         * 登录到组内任意主机。
+         * 登录到组内任意主机
          */
         LOGIN_TO_ANY_SEAT(202),
 
         /**
-         * 收集指定位置的文件。
+         * 登录到已经被关闭的主机
+         */
+        LOGIN_TO_DISABLED_SEAT(203),
+
+        /**
+         * 禁用或启用主机
+         */
+        DISABLE_OR_ENABLE_SEAT(204),
+
+        /**
+         * 收集指定位置的文件
          */
         COLLECT_FILES(300),
-
-
 
 
 

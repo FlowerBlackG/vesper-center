@@ -11,6 +11,9 @@ package com.gardilily.vespercenter.service
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper
 import com.baomidou.mybatisplus.extension.kotlin.KtQueryWrapper
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl
+import com.gardilily.vespercenter.common.SessionManager
+import com.gardilily.vespercenter.entity.GroupPermissionEntity
+import com.gardilily.vespercenter.entity.PermissionEntity
 import com.gardilily.vespercenter.entity.SeatEntity
 import com.gardilily.vespercenter.entity.UserEntity
 import com.gardilily.vespercenter.mapper.SeatMapper
@@ -19,7 +22,9 @@ import org.springframework.stereotype.Service
 
 @Service
 class SeatService @Autowired constructor(
-    val linuxService: LinuxService
+    val linuxService: LinuxService,
+    val permissionService: PermissionService,
+    val groupPermissionService: GroupPermissionService
 ) : ServiceImpl<SeatMapper, SeatEntity>() {
 
 
@@ -63,5 +68,46 @@ class SeatService @Autowired constructor(
         linuxService.forceLogout(seat)
         linuxService.removeUser(seat)
         baseMapper.deleteById(seat)
+    }
+
+
+    fun checkLoginPermission(userId: Long, seat: SeatEntity): Boolean {
+        return if (userId == seat.userId) {
+            true
+        } else if (permissionService.checkPermission(userId, PermissionEntity.Permission.LOGIN_TO_ANY_SEAT)) {
+            true
+        } else if (
+
+            seat.groupId != null
+            &&
+            groupPermissionService.checkPermission(
+                userId, seat.groupId!!, GroupPermissionEntity.GroupPermission.LOGIN_TO_ANY_SEAT
+            )
+
+        ) {
+            true
+        } else {
+            false
+        }
+
+    }
+
+    fun canLogin(userId: Long, seat: SeatEntity): Boolean {
+        return if (!checkLoginPermission(userId, seat)) {
+            false  // 没有登录权限，当然不允许。
+        } else if (seat.isEnabled()) {
+            true
+        } else if (permissionService.checkPermission(userId, PermissionEntity.Permission.LOGIN_TO_DISABLED_SEAT)) {
+            // disabled but I have the permission :D
+            true
+        } else if (
+            seat.groupId != null
+            &&
+            groupPermissionService.checkPermission(userId, seat.groupId!!, GroupPermissionEntity.GroupPermission.LOGIN_TO_DISABLED_SEAT)
+        ) {
+            true
+        } else {
+            false
+        }
     }
 }

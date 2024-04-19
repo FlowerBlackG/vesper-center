@@ -14,7 +14,7 @@
 permission:
 1
 GRANT_PERMISSION
-管理所有用户的权限。
+管理所有用户的权限
 
 
 permission:
@@ -42,13 +42,13 @@ CREATE_SEAT
 permission:
 201
 DELETE_ANY_SEAT
-删除任何 seat。
+删除任何 seat
 
 
 permission:
 202
 NAME_ANY_SEAT
-编辑任意 seat 的名字。
+编辑任意 seat 的名字
 
 
 permission:
@@ -58,15 +58,28 @@ LOGIN_TO_ANY_SEAT
 
 
 permission:
+204
+LOGIN_TO_DISABLED_SEAT
+登录到已经被关闭的主机
+
+
+
+permission:
+205
+DISABLE_OR_ENABLE_SEAT
+禁用或启用主机
+
+
+permission:
 300
 CREATE_GROUP
-创建组。包含删除自己组的权限。创建后，自动获取组内一切权限。
+创建组。包含删除自己组的权限。创建后，自动获取组内一切权限
 
 
 permission:
 301
 MODIFY_ANY_GROUP_MEMBERS_PERMISSION
-编辑任意组的组内成员权限。
+编辑任意组的组内成员权限
 
 
 --------------------------------
@@ -88,28 +101,40 @@ DROP_GROUP
 group-permission:
 100
 ADD_OR_REMOVE_USER
-将用户移入或移出组。
+将用户移入或移出组
 
 
 group-permission:
 200
 CREATE_OR_DELETE_SEAT
-在组内创建主机，以及删除组内任意主机。
+在组内创建主机，以及删除组内任意主机
 
 
 group-permission:
 201
 NAME_ANY_SEAT
-编辑组内任意 seat 的名字。
+编辑组内任意 seat 的名字
 
 
 group-permission:
 202
 LOGIN_TO_ANY_SEAT
-登录到组内任意主机。
+登录到组内任意主机
+
+
+group-permission:
+203
+LOGIN_TO_DISABLED_SEAT
+登录到已经被关闭的主机
+
+
+group-permission:
+204
+DISABLE_OR_ENABLE_SEAT
+禁用或启用主机
 
 
 group-permission:
 300
 COLLECT_FILES
-收集指定位置的文件。
+收集指定位置的文件

@@ -27,12 +27,12 @@ data class PermissionEntity(
         UNDEFINED(0),
 
         /**
-         * 管理所有用户的权限。
+         * 管理所有用户的权限
          */
         GRANT_PERMISSION(1),
 
         /**
-         * 创建和删除用户
+         * 创建和删除自己创建的用户
          */
         CREATE_AND_DELETE_USER(100),
 
@@ -47,12 +47,12 @@ data class PermissionEntity(
         CREATE_SEAT(200),
 
         /**
-         * 删除任何 seat。
+         * 删除任何 seat
          */
         DELETE_ANY_SEAT(201),
 
         /**
-         * 编辑任意 seat 的名字。
+         * 编辑任意 seat 的名字
          */
         NAME_ANY_SEAT(202),
 
@@ -62,10 +62,24 @@ data class PermissionEntity(
         LOGIN_TO_ANY_SEAT(203),
 
         /**
-         * 创建组。包含删除自己组的权限。创建后，自动获取组内一切权限。
+         * 登录到已经被关闭的主机
+         */
+        LOGIN_TO_DISABLED_SEAT(204),
+
+        /**
+         * 禁用或启用主机
+         */
+        DISABLE_OR_ENABLE_SEAT(205),
+
+        /**
+         * 创建组。包含删除自己组的权限。创建后，自动获取组内一切权限
          */
         CREATE_GROUP(300),
 
+        /**
+         * 编辑任意组的组内成员权限
+         */
+        MODIFY_ANY_GROUP_MEMBERS_PERMISSION(301),
 
 
 
