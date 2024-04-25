@@ -674,9 +674,21 @@ class UserController @Autowired constructor(
                 continue
             }
 
+            // 不许删超级管理员。
+
+            if (permissionService.checkPermission(user.id!!, Permission.GRANT_PERMISSION)) {
+                res[userId] = DeleteUserResultDtoEntry(
+                    success = false,
+                    msg = "不许造反！",
+                    username = user.username!!,
+                    userId = userId
+                )
+                continue
+            }
+
             // check permission
             if (permissionService.checkPermission(operatorUserId, Permission.DELETE_ANY_USER)) {
-                // passwd
+                // passed
             } else if (
                 permissionService.checkPermission(operatorUserId, Permission.CREATE_AND_DELETE_USER)
                 && operatorUserId == user.creator

@@ -64,16 +64,14 @@ data class GroupPermissionEntity(
         LOGIN_TO_DISABLED_SEAT(203),
 
         /**
-         * 禁用或启用主机
+         * 禁用或启用主机。同时包含强制关闭主机的能力
          */
-        DISABLE_OR_ENABLE_SEAT(204),
+        DISABLE_OR_ENABLE_ANY_SEAT(204),
 
         /**
          * 收集指定位置的文件
          */
         COLLECT_FILES(300),
-
-
 
 
 

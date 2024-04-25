@@ -66,8 +66,8 @@ LOGIN_TO_DISABLED_SEAT
 
 permission:
 205
-DISABLE_OR_ENABLE_SEAT
-禁用或启用主机
+DISABLE_OR_ENABLE_ANY_SEAT
+禁用或启用主机。同时包含强制关闭主机的能力
 
 
 permission:
@@ -130,8 +130,8 @@ LOGIN_TO_DISABLED_SEAT
 
 group-permission:
 204
-DISABLE_OR_ENABLE_SEAT
-禁用或启用主机
+DISABLE_OR_ENABLE_ANY_SEAT
+禁用或启用主机。同时包含强制关闭主机的能力
 
 
 group-permission:

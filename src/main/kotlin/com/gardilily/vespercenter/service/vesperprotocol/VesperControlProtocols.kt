@@ -75,10 +75,6 @@ class VesperControlProtocols private constructor() {
         override val type get() = typeCode
         override val bodyLength get() = 0uL
 
-        override fun encodeBody(container: ArrayList<Byte>) {
-            // do nothing.
-        }
-
     }
 
 
@@ -90,9 +86,6 @@ class VesperControlProtocols private constructor() {
         override val type get() = typeCode
         override val bodyLength get() = 0uL
 
-        override fun encodeBody(container: ArrayList<Byte>) {
-            // do nothing.
-        }
     }
 
 
@@ -105,9 +98,16 @@ class VesperControlProtocols private constructor() {
         override val type get() = typeCode
         override val bodyLength get() = 0uL
 
-        override fun encodeBody(container: ArrayList<Byte>) {
-            // do nothing.
+    }
+
+
+    class GetVesperVersion : Base() {
+        companion object {
+            const val typeCode = 0x0201u
         }
+
+        override val type get() = typeCode
+        override val bodyLength get() = 0uL
     }
 
 

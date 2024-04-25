@@ -417,8 +417,8 @@ class LinuxService @Autowired constructor(
     fun loginToUser(seat: SeatEntity) = loginToUser(seat.linuxUid!!)
 
 
-    fun forceLogout(uid: Int): Int {
-        return Shell.pkill(kill = true, u = uid)
+    fun forceLogout(linuxUid: Int): Int {
+        return Shell.pkill(kill = true, u = linuxUid)
     }
 
     fun forceLogout(seat: SeatEntity) = forceLogout(seat.linuxUid!!)

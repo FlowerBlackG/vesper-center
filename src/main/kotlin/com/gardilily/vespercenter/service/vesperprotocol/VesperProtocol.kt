@@ -97,7 +97,7 @@ open class VesperProtocol {
     }
 
     open fun decodeBody(data: ByteBuffer): Int {
-        throw RuntimeException("base method called!")
+        return 0
     }
 
     protected open val bodyLength: ULong

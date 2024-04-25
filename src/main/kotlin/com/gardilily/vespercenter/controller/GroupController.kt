@@ -103,6 +103,14 @@ class GroupController @Autowired constructor(
     }
 
 
+    @GetMapping("allPermissions")
+    fun getAllPermissions(): IResponse<List<GroupPermissionEntity>> {
+        val query = KtQueryWrapper(GroupPermissionEntity::class.java)
+        val result = groupPermissionService.baseMapper.selectList(query)
+        return IResponse.ok(result)
+    }
+
+
     data class GrantPermissionRequestDto(
         var permission: GroupPermission? = null,
         var grant: Boolean? = null,
@@ -331,12 +339,22 @@ class GroupController @Autowired constructor(
     @GetMapping("permissions")
     @Operation(summary = "获得该用户在所有群组内的所有权限")
     fun getAllGroupPermissions(
-        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestParam userId: Long? = null,
+        @RequestParam groupId: Long? = null,
     ): IResponse<List<GroupPermissionGrantEntity>> {
-        val granted = groupPermissionGrantMapper.selectList(
-            KtQueryWrapper(GroupPermissionGrantEntity::class.java)
-                .eq(GroupPermissionGrantEntity::userId, ticket.userId)
-        )
+        val query = KtQueryWrapper(GroupPermissionGrantEntity::class.java)
+        if (userId == null) {
+            query.eq(GroupPermissionGrantEntity::userId, ticket.userId)
+        } else {
+            query.eq(GroupPermissionGrantEntity::userId, userId)
+        }
+
+        if (groupId != null) {
+            query.eq(GroupPermissionGrantEntity::groupId, groupId)
+        }
+
+        val granted = groupPermissionGrantMapper.selectList(query)
 
         return IResponse.ok(granted)
     }
@@ -393,6 +411,31 @@ class GroupController @Autowired constructor(
         // todo: 还需添加的功能：管理员看自己不在的组
 
         return IResponse.ok(res.map { it.value!! })
+    }
+
+
+    data class RemoveUserRequestDto(
+        val userId: Long?,
+        val groupId: Long?
+    )
+    @PostMapping("removeUser")
+    fun removeUser(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestBody body: RemoveUserRequestDto
+    ): IResponse<Unit> {
+        if (body.userId == null || body.groupId == null) {
+            return IResponse.error()
+        }
+
+        // check permission
+
+        groupPermissionService.ensurePermission(ticket, body.groupId, GroupPermission.ADD_OR_REMOVE_USER)
+
+        // do the job
+
+        userGroupService.removeUserFromGroup(userId = body.userId, groupId = body.groupId)
+
+        return IResponse.ok()
     }
 
 

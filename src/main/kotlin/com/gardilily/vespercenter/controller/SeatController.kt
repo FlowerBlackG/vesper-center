@@ -9,6 +9,8 @@
 package com.gardilily.vespercenter.controller
 
 import com.baomidou.mybatisplus.extension.kotlin.KtQueryWrapper
+import com.baomidou.mybatisplus.extension.kotlin.KtUpdateChainWrapper
+import com.baomidou.mybatisplus.extension.kotlin.KtUpdateWrapper
 import com.gardilily.vespercenter.common.MacroDefines
 import com.gardilily.vespercenter.common.SessionManager
 import com.gardilily.vespercenter.dto.IResponse
@@ -111,7 +113,7 @@ class SeatController @Autowired constructor(
                 userId = uid,
                 groupId = group,
                 creator = ticket.userId,
-                seatEnabled = 1,
+                seatEnabled = true,
                 note = note,
                 linuxUid = -1,
                 linuxLoginName = "/",
@@ -217,7 +219,6 @@ class SeatController @Autowired constructor(
     ): IResponse<List<Any?>> {
         val userId = ticket.userId
 
-
         val res = HashMap<Long, Any?>()  // id -> entity
 
         fun addToRes(list: List<SeatEntity>) {
@@ -229,12 +230,16 @@ class SeatController @Autowired constructor(
                     return@forEach
                 }
 
-                res[id] = entity.toHashMapWithKeysEvenNull(
+                val map = entity.toHashMapWithKeysEvenNull(
                     SeatEntity::id, SeatEntity::userId, SeatEntity::creator, SeatEntity::nickname,
                     SeatEntity::seatEnabled, SeatEntity::groupId, SeatEntity::note,
                     SeatEntity::linuxUid, SeatEntity::linuxLoginName, SeatEntity::createTime,
                     SeatEntity::lastLoginTime
                 )
+
+                map["username"] = userService.getById(entity.userId)?.username  // todo: 待优化
+                res[id] = map
+
             }
         } // fun addToRes
 
@@ -432,6 +437,11 @@ class SeatController @Autowired constructor(
         val vesperPort: Int,
         val vncPassword: String
     )
+    data class LaunchVesperRequestDto(
+        val seatId: Long?,
+        val displayWidth: Long = 1280,
+        val displayHeight: Long = 720
+    )
     @Operation(summary = "启动 vesper。")
     @Parameters(
         Parameter(name = "seatId")
@@ -439,12 +449,16 @@ class SeatController @Autowired constructor(
     @PostMapping("launchVesper")
     fun startVesper(
         @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
-        @RequestBody body: HashMap<String, *>
+        @RequestBody body: LaunchVesperRequestDto
     ): IResponse<StartVesperResponseDto> {
         val userId = ticket.userId
         // 参数非空检查。
-        val seatId = body["seatId"]?.toString()?.toLong() ?: return IResponse.error(msg = "seatId required.")
+        val seatId = body.seatId ?: return IResponse.error(msg = "seatId required.")
         val seat = seatService.getById(seatId) ?: return IResponse.error(msg = "错误1。")
+
+        if (body.displayWidth < 500 || body.displayWidth > 2560 || body.displayHeight < 300 || body.displayHeight > 1600) {
+            return IResponse.error(msg = "屏幕尺寸太奇怪了吧？")
+        }
 
         val execApps = listOf("konsole", "dolphin")
         val execCmdsBuilder = StringBuilder()
@@ -480,9 +494,9 @@ class SeatController @Autowired constructor(
         vesperCmdLine.append(" --no-color")
             .append(" --log-to /home/${seat.linuxLoginName}/vesper-core.log")
             .append(" --headless")
-            .append(" --add-virtual-display 1280*720") // todo
+            .append(" --add-virtual-display ${body.displayWidth}*${body.displayHeight}")
             .append(" --use-pixman-renderer")
-            .append(" --exec-cmds $execCmds")
+            .append(" --exec-cmds \"$execCmds\"")
             .append(" --enable-vnc")
             .append(" --vnc-auth-passwd $vncPassword")
             .append(" --vnc-port $port")
@@ -666,6 +680,78 @@ class SeatController @Autowired constructor(
         }
 
         return IResponse.ok(res)
+    }
+
+
+    data class SetEnabledRequestBody(
+        val seatId: Long? = null,
+        val groupId: Long? = null,
+        val enabled: Boolean?,
+        var alsoQuit: Boolean?
+    )
+    @PostMapping("enable")
+    @Operation(summary = "编辑一台/一组主机的启用状态。seatId和groupId二选一")
+    @Parameters(
+        Parameter(name = "groupId", description = "调整整组主机启用状态"),
+        Parameter(name = "seatId", description = "调整单个主机启用状态")
+    )
+    fun setEnabled(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestBody body: SetEnabledRequestBody
+    ): IResponse<Unit> {
+
+        // check request body
+
+        if (body.enabled == null) {
+            return IResponse.error(msg = "`enabled` should be passed!")
+        } else if (body.seatId != null && body.groupId != null) {
+            return IResponse.error(msg = "don't pass groupId and seatId at the same time!")
+        } else if (body.seatId == null && body.groupId == null) {
+            return IResponse.error(msg = "at least one of groupId and seatId should be passed!")
+        }
+
+        if (body.alsoQuit == null) {
+            body.alsoQuit = false
+        }
+
+        val groupMode = body.groupId != null
+
+        // check permission
+
+        if (permissionService.checkPermission(ticket, Permission.DISABLE_OR_ENABLE_ANY_SEAT)) {
+            // passed
+        } else if (groupMode && groupPermissionService.checkPermission(ticket, body.groupId!!, GroupPermission.DISABLE_OR_ENABLE_ANY_SEAT)) {
+            // passed
+        } else {
+            return IResponse.error(msg = "permission denied.")
+        }
+
+        // do the job
+
+        if (groupMode) {
+            val updateWrapper = KtUpdateWrapper(SeatEntity::class.java)
+                .eq(SeatEntity::groupId, body.groupId)
+                .set(SeatEntity::seatEnabled, body.enabled)
+            seatService.baseMapper.update(updateWrapper)
+
+            if (body.alsoQuit!!) {
+                val select = KtQueryWrapper(SeatEntity::class.java).eq(SeatEntity::groupId, body.groupId)
+                seatService.baseMapper.selectList(select).forEach {
+                    linuxService.forceLogout(it)
+                }
+            }
+
+        } else {
+            val seat = seatService.getById(body.seatId) ?: return IResponse.error(msg = "没有这个 seat")
+            seat.seatEnabled = body.enabled
+            seatService.updateById(seat)
+
+            if (body.alsoQuit!!) {
+                linuxService.forceLogout(seat)
+            }
+        }
+
+        return IResponse.ok()
     }
 
 }

@@ -10,6 +10,7 @@ package com.gardilily.vespercenter.service
 
 import com.baomidou.mybatisplus.extension.kotlin.KtQueryWrapper
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl
+import com.gardilily.vespercenter.common.SessionManager
 import com.gardilily.vespercenter.entity.GroupPermissionEntity
 import com.gardilily.vespercenter.entity.GroupPermissionGrantEntity
 import com.gardilily.vespercenter.entity.UserEntity
@@ -33,6 +34,15 @@ class GroupPermissionService @Autowired constructor(
         if (!checkPermission(uid, gid, permission)) {
             throw PermissionService.PermissionDeniedException(permission.name)
         }
+    }
+
+
+    fun ensurePermission(
+        ticket: SessionManager.Ticket,
+        gid: Long,
+        permission: GroupPermissionEntity.GroupPermission
+    ) {
+        ensurePermission(ticket.userId, gid, permission)
     }
 
 
@@ -85,6 +95,13 @@ class GroupPermissionService @Autowired constructor(
         gid: Long,
         permission: GroupPermissionEntity.GroupPermission
     ) = checkPermission(entity.id!!, gid, permission)
+
+
+    fun checkPermission(
+        ticket: SessionManager.Ticket,
+        gid: Long,
+        permission: GroupPermissionEntity.GroupPermission
+    ) = checkPermission(ticket.userId, gid, permission)
 
 
     fun checkPermission(

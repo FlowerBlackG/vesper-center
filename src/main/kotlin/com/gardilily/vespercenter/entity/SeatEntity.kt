@@ -19,7 +19,7 @@ data class SeatEntity(
     var userId: Long? = null,
     var groupId: Long? = null,
     var creator: Long? = null,
-    var seatEnabled: Int? = null,
+    var seatEnabled: Boolean? = null,
     /** 主机名。 */
     var nickname: String? = null,
     /** 关于主机的注意事项。 */
@@ -31,10 +31,10 @@ data class SeatEntity(
     var lastLoginTime: Timestamp? = null,
 ) {
     fun isDisabled(): Boolean {
-        return seatEnabled!! == 0
+        return !isEnabled()
     }
 
     fun isEnabled(): Boolean {
-        return !isDisabled()
+        return seatEnabled == true
     }
 }
