@@ -1,3 +1,12 @@
+version  tag  : 0.0.3-dev
+version  code : 3
+complete time : 2024-04-27T17:11+08:00
+update   log  :
+
+New API:
++ vesperCenter/updateLog
+--------------------------------
+
 version  tag  : 0.0.2-dev
 version  code : 2
 complete time : 2024-04-25T16:30+08:00
