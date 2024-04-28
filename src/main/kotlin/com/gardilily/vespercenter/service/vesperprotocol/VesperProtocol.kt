@@ -104,7 +104,7 @@ open class VesperProtocol {
         get() = 0uL
 
     protected open fun encodeBody(container: ArrayList<Byte>) {
-        throw RuntimeException("base method called!")
+
     }
 
 } // open class VesperProtocol

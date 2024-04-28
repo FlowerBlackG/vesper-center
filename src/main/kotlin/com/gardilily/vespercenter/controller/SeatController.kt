@@ -56,6 +56,7 @@ class SeatController @Autowired constructor(
         )
     }
 
+
     @Operation(summary = "新建桌面环境。支持批量创建")
     @Parameters(
         Parameter(name = "group", description = "所属组号。可以为空"),
@@ -123,6 +124,7 @@ class SeatController @Autowired constructor(
             seatService.baseMapper.insert(seatEntity)
 
             try {
+                seatEntity.nickname = "VC Seat ${seatEntity.id}"
                 seatEntity.linuxLoginName = "vesper_center_${seatEntity.id}"
                 seatEntity.linuxPasswdRaw = UUID.randomUUID().toString().substring(0 until 16)
                 seatEntity.linuxUid = linuxService.createUser(
@@ -586,6 +588,28 @@ class SeatController @Autowired constructor(
     }
 
 
+    data class LoginStatusResponse(
+        val linux: Boolean,
+        val vesper: Boolean,
+        val vesperLauncher: Boolean
+    )
+    @GetMapping("loginStatus")
+    fun getLoginStatus(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestParam seatId: Long
+    ): IResponse<LoginStatusResponse> {
+        val seat = seatService.getById(seatId) ?: return IResponse.error()
+
+        return IResponse.ok(
+            LoginStatusResponse(
+                linux = linuxService.isLoggedIn(seat),
+                vesper = vesperService.isVesperLive(seat),
+                vesperLauncher = vesperService.isVesperLauncherLive(seat)
+            )
+        )
+    }
+
+
     @Operation(summary = "检查某些主机的 vesper 是否正在工作。")
     @Parameters(
         Parameter(name = "seatIds", description = "需要查询的主机id表。每个id以英文逗号分隔。")
@@ -630,13 +654,16 @@ class SeatController @Autowired constructor(
     }
 
 
+    data class ShutdownRequest(
+        val seatId: Long?
+    )
     @PostMapping("shutdown")
     @Operation(summary = "关闭一个桌面环境。")
     fun shutdown(
         @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
-        @RequestBody body: HashMap<String, Any?>
+        @RequestBody body: ShutdownRequest
     ): IResponse<Unit> {
-        val seatId = (body["seatId"] as Int?)?.toLong() ?: return IResponse.error()
+        val seatId = body.seatId ?: return IResponse.error()
 
         val seat = seatService.getById(seatId) ?: return IResponse.error()
 

@@ -1,3 +1,15 @@
+version  tag  : 1.0.0
+version  code : 4
+complete time : 2024-04-28T16:14+08:00
+update   log  :
+
+Bugfix:
+* Failed to encode empty packet (of Vesper Protocol).
+
+Improvement:
+* Adds default nickname to newly created seat.
+--------------------------------
+
 version  tag  : 0.0.3-dev
 version  code : 3
 complete time : 2024-04-27T17:11+08:00
