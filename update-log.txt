@@ -1,3 +1,16 @@
+
+version  tag  : 1.0.1
+version  code : 5
+complete time : 2024-05-06T11:12+08:00
+update   log  :
+
+Bugfix:
+* Update log API now returns right build-time.
+
+Improvement:
+* Change Vesper Virtual Display's resolution to 1440*900.
+--------------------------------
+
 version  tag  : 1.0.0
 version  code : 4
 complete time : 2024-04-28T16:14+08:00

@@ -103,9 +103,9 @@ class VesperCenterController @Autowired constructor(
             }
 
             val entry = GetUpdateLogResponseDtoEntry(software = software)
-            entry.versionName = lines.removeFirst().split(":")[1].trim()
-            entry.versionCode = lines.removeFirst().split(":")[1].trim().toLong()
-            entry.completeTime = lines.removeFirst().split(":")[1].trim()
+            entry.versionName = lines.removeFirst().substringAfter(":").trim()
+            entry.versionCode = lines.removeFirst().substringAfter(":").trim().toLong()
+            entry.completeTime = lines.removeFirst().substringAfter(":").trim()
             lines.removeFirst()
 
 

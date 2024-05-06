@@ -441,8 +441,8 @@ class SeatController @Autowired constructor(
     )
     data class LaunchVesperRequestDto(
         val seatId: Long?,
-        val displayWidth: Long = 1280,
-        val displayHeight: Long = 720
+        val displayWidth: Long = 1440,
+        val displayHeight: Long = 900
     )
     @Operation(summary = "启动 vesper。")
     @Parameters(
