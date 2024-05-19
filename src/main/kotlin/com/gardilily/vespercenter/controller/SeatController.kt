@@ -492,15 +492,15 @@ class SeatController @Autowired constructor(
         }
 
         // 准备 vesper 命令行
-        val vesperCmdLine = StringBuilder("vesper")
+        val vesperCmdLine = StringBuilder()
+        vesperCmdLine.append("VESPER_VNC_AUTH_PASSWD=$vncPassword")
+        vesperCmdLine.append(" vesper")
         vesperCmdLine.append(" --no-color")
             .append(" --log-to /home/${seat.linuxLoginName}/vesper-core.log")
             .append(" --headless")
             .append(" --add-virtual-display ${body.displayWidth}*${body.displayHeight}")
-            .append(" --use-pixman-renderer")
             .append(" --exec-cmds \"$execCmds\"")
             .append(" --enable-vnc")
-            .append(" --vnc-auth-passwd $vncPassword")
             .append(" --vnc-port $port")
             .append(" --libvncserver-passwd-file ${MacroDefines.Vesper.LIBVNCSERVER_PASSWD_FILE}")
             .append(" --enable-ctrl")

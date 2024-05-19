@@ -1,9 +1,9 @@
 
 vesper-center:
   system:
-    version-name: 1.0.1
-    version-code: 5
-    build-time: 2024-05-06T11:12+08:00
+    version-name: 1.0.2
+    version-code: 6
+    build-time: 2024-05-19T16:24+08:00
   session:
     token-expire-milliseconds: 3600000  # 60分钟
     ticket-locker-file:

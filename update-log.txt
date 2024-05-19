@@ -1,4 +1,15 @@
 
+version  tag  : 1.0.2
+version  code : 6
+complete time : 2024-05-19T16:24+08:00
+update   log  :
+
+Follow changes made in vesper-core 1.1.0:
+* Pass VNC password to vesper using environment variable.
+* Remove `--use-pixman-renderer` option.
+
+--------------------------------
+
 version  tag  : 1.0.1
 version  code : 5
 complete time : 2024-05-06T11:12+08:00
