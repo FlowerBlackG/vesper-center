@@ -1,9 +1,9 @@
 
 vesper-center:
   system:
-    version-name: 1.0.2
-    version-code: 6
-    build-time: 2024-05-19T16:24+08:00
+    version-name: 1.1.0
+    version-code: 7
+    build-time: 2024-05-21T15:33+08:00
   session:
     token-expire-milliseconds: 3600000  # 60分钟
     ticket-locker-file:
@@ -11,6 +11,9 @@ vesper-center:
       # 设为 'none' 以禁用缓存。
       dump-path: ${VESPER_CENTER_TICKET_LOCKER_DUMP_PATH:none}
       dump-key: '0123456789abcdef'
+  cors:
+    # example: https:/xxx.com,http://xxx.cn,http://...  which is comma splitted.
+    allowed-origins: ${VESPER_CENTER_CORS_ALLOWED_ORIGINS}
 
 spring:
   datasource:

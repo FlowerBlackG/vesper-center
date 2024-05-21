@@ -1,4 +1,14 @@
 
+version  tag  : 1.1.0
+version  code : 7
+complete time : 2024-05-21T15:33+08:00
+update   log  :
+
+CORS:
++ Read allowed origins from environment variable ${VESPER_CENTER_CORS_ALLOWED_ORIGINS}.
+
+--------------------------------
+
 version  tag  : 1.0.2
 version  code : 6
 complete time : 2024-05-19T16:24+08:00

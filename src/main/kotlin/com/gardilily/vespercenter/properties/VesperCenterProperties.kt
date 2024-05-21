@@ -32,4 +32,6 @@ class VesperCenterProperties @Autowired constructor(
     }
 
     val sessionTicketLockerFileDumpKey = environment.getProperty("vesper-center.session.ticket-locker-file.dump-key")
+
+    val corsAllowedOrigins = environment.getProperty("vesper-center.cors.allowed-origins")?.split(',') ?: emptyList()
 }
