@@ -24,6 +24,7 @@ class WebConfig @Autowired constructor(
             .allowedOrigins(
                 *(vesperCenterProperties.corsAllowedOrigins.toTypedArray())
             )
+            .allowPrivateNetwork(true)
             .allowCredentials(false)
             .allowedMethods("*")
             .allowedHeaders("*")
