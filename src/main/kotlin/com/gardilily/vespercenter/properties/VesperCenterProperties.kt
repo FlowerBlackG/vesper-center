@@ -21,14 +21,20 @@ class VesperCenterProperties @Autowired constructor(
     val systemVersionName = environment.getProperty("vesper-center.system.version-name")!!
     val systemBuildTime = environment.getProperty("vesper-center.system.build-time")!!
 
+    val dataDir = run {
+        val key = "vesper-center.data-dir"
+        val f = environment.getProperty(key) ?: throw RuntimeException("environment $key is required.")
+        f
+    }
+
     val sessionTokenExpireMilliseconds = environment.getProperty("vesper-center.session.token-expire-milliseconds")?.toLong() ?: 3600000
-    val sessionTicketLockerFileDumpPath = run {
-        val f = environment.getProperty("vesper-center.session.ticket-locker-file.dump-path") ?: "none"
-        return@run if (f == "none") {
-            null
-        } else {
-            f
+    val sessionTicketLockerFileEnableDump = run {
+        val key = "vesper-center.session.ticket-locker-file.enable-dump"
+        val f = environment.getProperty(key) ?: "false"
+        if (f != "true" && f != "false") {
+            throw RuntimeException("$key should be true or false.")
         }
+        return@run f == "true"
     }
 
     val sessionTicketLockerFileDumpKey = environment.getProperty("vesper-center.session.ticket-locker-file.dump-key")

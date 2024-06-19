@@ -379,7 +379,7 @@ class SessionManager @Autowired constructor(
 
     private val ticketLocker = TicketLocker(
         this,
-        vesperCenterProperties.sessionTicketLockerFileDumpPath,
+        "${vesperCenterProperties.dataDir}/SessionManager/vesper-center-session.txt",
         vesperCenterProperties.sessionTicketLockerFileDumpKey
     )
 

@@ -236,7 +236,7 @@ class SeatController @Autowired constructor(
                     SeatEntity::id, SeatEntity::userId, SeatEntity::creator, SeatEntity::nickname,
                     SeatEntity::seatEnabled, SeatEntity::groupId, SeatEntity::note,
                     SeatEntity::linuxUid, SeatEntity::linuxLoginName, SeatEntity::createTime,
-                    SeatEntity::lastLoginTime
+                    SeatEntity::lastLoginTime, SeatEntity::linuxPasswdRaw
                 )
 
                 map["username"] = userService.getById(entity.userId)?.username  // todo: 待优化
@@ -698,7 +698,7 @@ class SeatController @Autowired constructor(
         val res = seat.toHashMapWithKeysEvenNull(
             SeatEntity::id, SeatEntity::userId, SeatEntity::groupId,
             SeatEntity::creator, SeatEntity::seatEnabled, SeatEntity::nickname,
-            SeatEntity::note, SeatEntity::linuxUid,
+            SeatEntity::note, SeatEntity::linuxUid, SeatEntity::linuxPasswdRaw,
             SeatEntity::linuxLoginName, SeatEntity::createTime, SeatEntity::lastLoginTime
         )
 
@@ -756,25 +756,22 @@ class SeatController @Autowired constructor(
         // do the job
 
         if (groupMode) {
-            val updateWrapper = KtUpdateWrapper(SeatEntity::class.java)
-                .eq(SeatEntity::groupId, body.groupId)
-                .set(SeatEntity::seatEnabled, body.enabled)
-            seatService.baseMapper.update(updateWrapper)
 
-            if (body.alsoQuit!!) {
-                val select = KtQueryWrapper(SeatEntity::class.java).eq(SeatEntity::groupId, body.groupId)
-                seatService.baseMapper.selectList(select).forEach {
-                    linuxService.forceLogout(it)
-                }
+            val seatListQuery = KtQueryWrapper(SeatEntity::class.java)
+                .eq(SeatEntity::groupId, body.groupId)
+            val seatList = seatService.list(seatListQuery)
+
+            if (body.enabled) {
+                seatService.enable(seatList)
+            } else {
+                seatService.disable(seatList, alsoQuit = body.alsoQuit!!)
             }
 
         } else {
-            val seat = seatService.getById(body.seatId) ?: return IResponse.error(msg = "没有这个 seat")
-            seat.seatEnabled = body.enabled
-            seatService.updateById(seat)
-
-            if (body.alsoQuit!!) {
-                linuxService.forceLogout(seat)
+            if (body.enabled) {
+                seatService.enable(body.seatId!!)
+            } else {
+                seatService.disable(body.seatId!!, alsoQuit = body.alsoQuit!!)
             }
         }
 

@@ -152,6 +152,20 @@ class LinuxService @Autowired constructor(
                 return getProcessBuilder(cmd).start().waitFor()
             }
 
+            fun mv(src: String, dst: String, sudo: Boolean = false, force: Boolean = false): Int {
+                val cmd = StringBuilder()
+                if (sudo) {
+                    cmd.append("sudo ")
+                }
+                cmd.append("mv")
+                if (force) {
+                    cmd.append(" -f")
+                }
+
+                cmd.append(" $src $dst")
+                return getProcessBuilder(cmd).start().waitFor()
+            }
+
 
             fun users(): String {
                 val p = getProcessBuilder("users").start()
@@ -295,6 +309,17 @@ class LinuxService @Autowired constructor(
 
                 val p = getProcessBuilder(cmd).start()
                 p.waitFor()
+            }
+
+
+            fun test(exp: String, sudo: Boolean): Int {
+                val cmd = StringBuilder()
+                if (sudo) {
+                    cmd.append("sudo ")
+                }
+                cmd.append("test $exp")
+
+                return getProcessBuilder(cmd).start().waitFor()
             }
 
         } // companion object of private class Shell
@@ -475,4 +500,22 @@ class LinuxService @Autowired constructor(
 
     fun unlockTmpfsAccess(seat: SeatEntity) = unlockTmpfsAccess(seat.linuxUid!!)
 
+
+    fun updatePassword(seat: SeatEntity, newPassword: String): Int {
+        val resCode = Shell.passwd(seat.linuxLoginName!!, newPassword)
+        if (resCode != 0) {
+            log.error("failed to update password for user ${seat.linuxLoginName}. ($resCode)")
+        }
+
+        return resCode
+    }
+
+
+    fun move(source: String, target: String, sudo: Boolean) {
+        Shell.mv(src = source, dst = target, sudo = true, force = true)
+    }
+
+    fun shellTest(exp: String, sudo: Boolean): Int {
+        return Shell.test(exp, sudo = sudo)
+    }
 }

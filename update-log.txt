@@ -1,4 +1,23 @@
 
+version  tag  : next-20240619
+version  code : 8
+complete time : 2024-06-19T20:32+08:00
+update   log  :
+
+Data dir mechanism introduced:
+  Data dir should be specified via environment VESPER_CENTER_DATA_DIR. Modules of Vesper Center will use this directory to store files.
+
+Session Manager:
+  1. VESPER_CENTER_TICKET_LOCKER_DUMP_PATH is removed.
+  2. VESPER_CENTER_TICKET_LOCKER_ENABLE_DUMP added.
+
+Seat Controller:
+  1. Users' linux login password is now visible to them.
+  2. Disabling seats will change their login password to random strings, and their .ssh folders will be locked.
+
+--------------------------------
+
+
 version  tag  : 1.1.0
 version  code : 7
 complete time : 2024-05-21T15:33+08:00

@@ -32,9 +32,15 @@ Wayland 图形合成器 & 窗口管理；VNC 远程桌面服务器。
 
 ## 必备的环境变量
 
-### VESPER_CENTER_TICKET_LOCKER_DUMP_PATH
+### VESPER_CENTER_DATA_DIR
 
-设为 `none` 以禁用。
+Vesper Center 存放数据的地方。
+
+### VESPER_CENTER_TICKET_LOCKER_ENABLE_DUMP
+
+```
+true / false
+```
 
 ### VESPER_CENTER_DB_USERNAME
 

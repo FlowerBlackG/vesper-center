@@ -4,12 +4,13 @@ vesper-center:
     version-name: 1.1.0
     version-code: 7
     build-time: 2024-05-21T15:33+08:00
+  data-dir: ${VESPER_CENTER_DATA_DIR}
   session:
     token-expire-milliseconds: 3600000  # 60分钟
     ticket-locker-file:
       # vesper center 停止时，缓存 ticket locker 的位置。
       # 设为 'none' 以禁用缓存。
-      dump-path: ${VESPER_CENTER_TICKET_LOCKER_DUMP_PATH:none}
+      enable-dump: ${VESPER_CENTER_TICKET_LOCKER_ENABLE_DUMP:false}
       dump-key: '0123456789abcdef'
   cors:
     # example: https:/xxx.com,http://xxx.cn,http://...  which is comma splitted.
