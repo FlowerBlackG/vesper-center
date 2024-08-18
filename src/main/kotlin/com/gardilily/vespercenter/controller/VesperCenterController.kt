@@ -149,4 +149,10 @@ class VesperCenterController @Autowired constructor(
         return IResponse.ok(res)
     }
 
+
+    @GetMapping("ping")
+    fun ping(): IResponse<String> {
+        return IResponse.ok("pong")
+    }
+
 }

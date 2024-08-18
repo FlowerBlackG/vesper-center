@@ -1,9 +1,9 @@
 
 vesper-center:
   system:
-    version-name: 1.1.0
-    version-code: 7
-    build-time: 2024-05-21T15:33+08:00
+    version-name: 1.2.0
+    version-code: 8
+    build-time: 2024-08-18T19:50+08:00
   data-dir: ${VESPER_CENTER_DATA_DIR}
   session:
     token-expire-milliseconds: 3600000  # 60分钟
@@ -41,7 +41,11 @@ springdoc:
 
 server:
   # vesper center 运行的端口
-  port: 9000
+  port: ${VESPER_CENTER_WEB_SERVER_PORT:9000}
+  ssl:
+    key-store: ${VESPER_CENTER_SSL_KEY_STORE}
+    key-store-password: ${VESPER_CENTER_SSL_KEY_STORE_PASSWORD}
+    key-store-type: PKCS12
   error:
     whitelabel:
       enable: false

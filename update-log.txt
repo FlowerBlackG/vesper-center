@@ -1,7 +1,7 @@
 
-version  tag  : next-20240619
+version  tag  : 1.2.0
 version  code : 8
-complete time : 2024-06-19T20:32+08:00
+complete time : 2024-08-18T19:50+08:00
 update   log  :
 
 Data dir mechanism introduced:
@@ -14,6 +14,13 @@ Session Manager:
 Seat Controller:
   1. Users' linux login password is now visible to them.
   2. Disabling seats will change their login password to random strings, and their .ssh folders will be locked.
+
+Vesper Center Controller:
+  new API: ping
+
+System:
+  Server port can be configured.
+  SSL is now supported.
 
 --------------------------------
 
