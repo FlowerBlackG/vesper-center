@@ -267,7 +267,11 @@ class GroupController @Autowired constructor(
                 }
             }
         } else {
-            return IResponse.error()
+            return IResponse.error(msg = "usernames 和 userIds 必选其一。错误定位码：d1c80d2a-4566-4d41-9bc9-2a51b9247667")
+        }
+
+        if (users.map { it.id!! }.toSet().size != users.size) {
+            return IResponse.error(msg = "检测到重复的用户名或用户ID。错误定位码：11f6ff7a-917a-4cbe-98e0-50a816301d69")
         }
 
         for (user in users) {

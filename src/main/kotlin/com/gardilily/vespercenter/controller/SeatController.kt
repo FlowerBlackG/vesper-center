@@ -18,6 +18,7 @@ import com.gardilily.vespercenter.entity.GroupMemberEntity
 import com.gardilily.vespercenter.entity.PermissionEntity.Permission
 import com.gardilily.vespercenter.entity.GroupPermissionEntity.GroupPermission
 import com.gardilily.vespercenter.entity.SeatEntity
+import com.gardilily.vespercenter.entity.UserEntity
 import com.gardilily.vespercenter.service.*
 import com.gardilily.vespercenter.service.vesperprotocol.VesperControlProtocols
 import com.gardilily.vespercenter.service.vesperprotocol.VesperLauncherProtocols
@@ -50,72 +51,117 @@ class SeatController @Autowired constructor(
 
     class CreateSeatsResponseDto private constructor() {
         data class Entry(
-            val userId: Long,
-            val groupId: Long?,
-            val seatInfo: HashMap<String, Any?> // based on SeatEntity
+            val uniqueKey: Long,
+            val success: Boolean,
+            val msg: String,
+            val seatInfo: HashMap<String, Any?>? = null // based on SeatEntity
+        )
+    }
+
+
+    class CreateSeatsRequestDto private constructor() {
+        data class Entry(
+            val uniqueKey: Long,
+            val group: Long? = null,
+            /** or you can use userid. */
+            val username: String? = null,
+            /** or you can use username. */
+            val userid: Long? = null,
+            val skel: Long? = null,
+            val note: String? = null
         )
     }
 
 
     @Operation(summary = "新建桌面环境。支持批量创建")
-    @Parameters(
-        Parameter(name = "group", description = "所属组号。可以为空"),
-        Parameter(name = "users", description = "用户id列表", required = true),
-        Parameter(name = "skel", description = "样板间的 seat id", required = false),
-        Parameter(name = "note", description = "为主机附上的描述")
-    )
     @PostMapping("new")
     fun createSeats(
         @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
-        @RequestBody body: HashMap<String, *>
+        @RequestBody body: List<CreateSeatsRequestDto.Entry>
     ): IResponse<List<CreateSeatsResponseDto.Entry>> {
         // 参数校验
-        val users = body["users"] as List<*>? ?: return IResponse.error(msg = "users required.")
-        val group = (body["group"] as Int?)?.toLong() // nullable
-        val note = body["note"] as String? // nullable
-        val skelSeatId = body["skel"] as Long? // nullable
-
-        val skelPath = if (skelSeatId != null) {
-
-            val skelSeat = seatService.getById(skelSeatId)
-            if (skelSeat != null) {
-                "/home/${skelSeat.linuxLoginName}"
-            } else
-                null
-
-        } else
-            null
-
-        // 权限检查
-        if (group != null) {
-            groupPermissionService.ensurePermission(ticket.userId, group, GroupPermission.CREATE_OR_DELETE_SEAT)
-        } else {
-            permissionService.ensurePermission(ticket.userId, Permission.CREATE_SEAT)
+        body.forEach {
+            if (it.username.isNullOrBlank() && it.userid == null) {
+                return IResponse.error(msg = "非法访问。错误码：f084a8c2-5b00-4ab4-8134-0f1621188b45")
+            }
         }
 
-        // 创建主机
-        val successList = ArrayList<CreateSeatsResponseDto.Entry>()
+        val skelPathCache = HashMap<Long, String?>()  // skel seat id -> skel seat path
+        fun skelPathOf(skelId: Long?): String? {
+            if (skelId == null)
+                return null
 
-        users.forEach {
-            val uid = try { (it as Int).toLong() } catch (_: Exception) { return@forEach }
+            if (skelPathCache.contains(skelId))
+                return skelPathCache[skelId]
+
+            val skelSeat = seatService.getById(skelId)
+            val path = if (skelSeat != null) "/home/${skelSeat.linuxLoginName}" else null
+            skelPathCache[skelId] = path
+
+            return path
+        }
+
+
+        val result = ArrayList<CreateSeatsResponseDto.Entry>()
+        
+        for (it in body) {
+            // 权限检查
+
+            val permissionCheckPassed = if (it.group != null) {
+                groupPermissionService.checkPermission(ticket.userId, it.group, GroupPermission.CREATE_OR_DELETE_SEAT)
+            } else {
+                permissionService.checkPermission(ticket.userId, Permission.CREATE_SEAT)
+            }
+
+            if (!permissionCheckPassed) {
+                result.add(CreateSeatsResponseDto.Entry(
+                    uniqueKey = it.uniqueKey,
+                    success = false,
+                    msg = "你的权限不够。"
+                ))
+                continue
+            }
+
+            // 创建主机
+            val uid = if (it.userid != null)
+                it.userid
+            else {
+                val query = KtQueryWrapper(UserEntity::class.java)
+                    .eq(UserEntity::username, it.username)
+                userService.baseMapper.selectOne(query)?.id
+            }
+
+            if (uid == null) {
+                result.add(CreateSeatsResponseDto.Entry(
+                    uniqueKey = it.uniqueKey,
+                    success = false,
+                    msg = "找不到这个用户。"
+                ))
+                continue
+            }
 
             // 检查用户在不在组里面。
-            if (group != null) {
+            if (it.group != null) {
                 val existsQuery = KtQueryWrapper(GroupMemberEntity::class.java)
-                    .eq(GroupMemberEntity::groupId, group)
+                    .eq(GroupMemberEntity::groupId, it.group)
                     .eq(GroupMemberEntity::userId, uid)
                 if (!groupMemberService.exists(existsQuery)) {
-                    return@forEach
+                    result.add(CreateSeatsResponseDto.Entry(
+                        uniqueKey = it.uniqueKey,
+                        success = false,
+                        msg = "用户不在该组。"
+                    ))
+                    continue
                 }
             }
 
             // 新建主机。
             val seatEntity = SeatEntity(
                 userId = uid,
-                groupId = group,
+                groupId = it.group,
                 creator = ticket.userId,
                 seatEnabled = true,
-                note = note,
+                note = it.note,
                 linuxUid = -1,
                 linuxLoginName = "/",
                 linuxPasswdRaw = "",
@@ -126,18 +172,18 @@ class SeatController @Autowired constructor(
             try {
                 seatEntity.nickname = "VC Seat ${seatEntity.id}"
                 seatEntity.linuxLoginName = "vesper_center_${seatEntity.id}"
-                seatEntity.linuxPasswdRaw = UUID.randomUUID().toString().substring(0 until 16)
+                seatEntity.linuxPasswdRaw = UUID.randomUUID().toString().substring(0 until 16).replace("-", "")
                 seatEntity.linuxUid = linuxService.createUser(
                     seatEntity.linuxLoginName!!,
                     seatEntity.linuxPasswdRaw!!,
-                    skeletonDirectory = skelPath,
+                    skeletonDirectory = skelPathOf(it.skel),
                 ) ?: throw Exception("linux service failed to create user.")
 
                 seatService.updateById(seatEntity)
-                successList.add(
-                    CreateSeatsResponseDto.Entry(
-                    userId = uid,
-                    groupId = group,
+                result.add(CreateSeatsResponseDto.Entry(
+                    uniqueKey = it.uniqueKey,
+                    success = true,
+                    msg = "创建成功。",
                     seatInfo = seatEntity.toHashMapWithKeysEvenNull(
                         SeatEntity::id, SeatEntity::userId, SeatEntity::creator,
                         SeatEntity::seatEnabled, SeatEntity::nickname, SeatEntity::note,
@@ -148,10 +194,17 @@ class SeatController @Autowired constructor(
             } catch (e: Exception) {
                 e.printStackTrace()
                 seatService.removeById(seatEntity)
+                result.add(CreateSeatsResponseDto.Entry(
+                    uniqueKey = it.uniqueKey,
+                    success = false,
+                    msg = "创建失败。未知错误。错误码：4908933c-0dd9-4d60-a496-04c6d67cca44"
+                ))
             }
+
         }
 
-        return IResponse.ok(successList)
+
+        return IResponse.ok(result)
     }
 
 
