@@ -460,12 +460,12 @@ class SeatController @Autowired constructor(
 
         // 看看是否已经登录了。
         if (linuxService.isLoggedIn(seat)) {
-            return IResponse.error(msg = "启动失败（错误1）。")
+            return IResponse.error(msg = "主机已经启动过了。")
         }
 
         // 权限检查
         if (!seatService.canLogin(userId, seat)) {
-            return IResponse.error(msg = "启动失败（错误2）。")
+            return IResponse.error(msg = "不允许登录。可能是主机被管理员禁用了，或者你没有登录权限。")
         }
 
 
@@ -527,12 +527,12 @@ class SeatController @Autowired constructor(
 
         // 权限检查。
         if (!seatService.canLogin(userId, seat)) {
-            return IResponse.error(msg = "拒绝登录。")
+            return IResponse.error(msg = "不允许登录。可能是主机被管理员禁用了，或者你没有登录权限。")
         }
 
         // 检查 vesper launcher 是否在运行。
         if (!vesperService.isVesperLauncherLive(seat)) {
-            return IResponse.error(msg = "vesper launcher is not running!")
+            return IResponse.error(msg = "vesper launcher 不在运行。")
         }
 
         // 准备启动参数

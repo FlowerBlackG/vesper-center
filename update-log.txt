@@ -1,4 +1,21 @@
 
+version  tag  : 1.3.2
+version  code : 11
+complete time : 2024-08-25T20:02+08:00
+update   log  :
+
+Better error messages.
+
+Update dependencies to their latest version:
+* Kotlin
+* JVM source and target
+* Spring Boot
+* org.json
+* mybatis plus
+* kotlinx datetime
+
+--------------------------------
+
 version  tag  : 1.3.1
 version  code : 10
 complete time : 2024-08-25T19:32+08:00

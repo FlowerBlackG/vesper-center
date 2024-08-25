@@ -1,17 +1,17 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-	id("org.springframework.boot") version "3.2.3"
-	id("io.spring.dependency-management") version "1.1.4"
-	kotlin("jvm") version "1.9.22"
-	kotlin("plugin.spring") version "1.9.22"
+	id("org.springframework.boot") version "3.3.3"
+	id("io.spring.dependency-management") version "1.1.6"
+	kotlin("jvm") version "2.0.20"
+	kotlin("plugin.spring") version "2.0.20"
 }
 
 group = "com.gardilily"
 version = "0.0.1-SNAPSHOT"
 
 java {
-	sourceCompatibility = JavaVersion.VERSION_17
+	sourceCompatibility = JavaVersion.VERSION_21
 }
 
 configurations {
@@ -40,12 +40,12 @@ dependencies {
 	testImplementation("org.springframework.amqp:spring-rabbit-test")
 
 	// https://mvnrepository.com/artifact/org.json/json
-	implementation("org.json:json:20240205")
+	implementation("org.json:json:20240303")
 
 	// https://mvnrepository.com/artifact/org.jetbrains.kotlin/kotlin-stdlib
-	implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.22")
+	implementation("org.jetbrains.kotlin:kotlin-stdlib:2.0.20")
 
-	implementation("com.baomidou:mybatis-plus-boot-starter:3.5.5")
+	implementation("com.baomidou:mybatis-plus-boot-starter:3.5.7")
 
 	implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
@@ -53,13 +53,13 @@ dependencies {
 	implementation("com.github.xiaoymin:knife4j-openapi3-jakarta-spring-boot-starter:4.4.0")
 
 	// https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-datetime
-	runtimeOnly("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
+	runtimeOnly("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
 }
 
 tasks.withType<KotlinCompile> {
 	kotlinOptions {
 		freeCompilerArgs += "-Xjsr305=strict"
-		jvmTarget = "17"
+		jvmTarget = "21"
 	}
 }
 

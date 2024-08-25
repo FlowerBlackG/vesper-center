@@ -132,7 +132,7 @@ class GroupController @Autowired constructor(
         // 操作权限校验。
         when (body.permission) {
             // 本接口拒绝受理超级权限赋权请求！
-            GroupPermission.GRANT_PERMISSION -> return IResponse.error(msg = "拒绝赋权！")
+            GroupPermission.GRANT_PERMISSION -> return IResponse.error(msg = "不允许改动超级权限。")
 
             // 如果要赋予其他用户权限，自己必须拥有“赋权”权限。
             else -> groupPermissionService.ensurePermission(userId, body.groupId!!, GroupPermission.GRANT_PERMISSION)
