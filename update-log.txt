@@ -1,4 +1,14 @@
 
+version  tag  : 1.3.1
+version  code : 10
+complete time : 2024-08-25T19:32+08:00
+update   log  :
+
+Bugfix:
+  User with special permissions can now shut down some other users' seats (virtual environments).
+
+--------------------------------
+
 version  tag  : 1.3.0
 version  code : 9
 complete time : 2024-08-24T14:06+08:00

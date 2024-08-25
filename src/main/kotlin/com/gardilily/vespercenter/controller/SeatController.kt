@@ -720,8 +720,23 @@ class SeatController @Autowired constructor(
 
         val seat = seatService.getById(seatId) ?: return IResponse.error()
 
-        if (seat.userId != ticket.userId) {
-            return IResponse.error()
+
+        // check permission
+
+        if (seat.userId == ticket.userId) {
+            // permission check passed
+        }
+        else if (permissionService.checkPermission(ticket, Permission.DISABLE_OR_ENABLE_ANY_SEAT)) {
+            // passed
+        }
+        else if (
+            seat.groupId != null
+            && groupPermissionService.checkPermission(ticket, seat.groupId!!, GroupPermission.DISABLE_OR_ENABLE_ANY_SEAT)
+        ) {
+            // passed
+        }
+        else {
+            return IResponse.error(msg = "无权限。")
         }
 
         linuxService.forceLogout(seat)
