@@ -11,9 +11,11 @@ package com.gardilily.vespercenter.controller
 import com.baomidou.mybatisplus.extension.kotlin.KtQueryWrapper
 import com.baomidou.mybatisplus.extension.kotlin.KtUpdateChainWrapper
 import com.baomidou.mybatisplus.extension.kotlin.KtUpdateWrapper
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page
 import com.gardilily.vespercenter.common.MacroDefines
 import com.gardilily.vespercenter.common.SessionManager
 import com.gardilily.vespercenter.dto.IResponse
+import com.gardilily.vespercenter.dto.PagedResult
 import com.gardilily.vespercenter.entity.GroupMemberEntity
 import com.gardilily.vespercenter.entity.PermissionEntity.Permission
 import com.gardilily.vespercenter.entity.GroupPermissionEntity.GroupPermission
@@ -24,6 +26,7 @@ import com.gardilily.vespercenter.service.vesperprotocol.VesperControlProtocols
 import com.gardilily.vespercenter.service.vesperprotocol.VesperLauncherProtocols
 import com.gardilily.vespercenter.utils.Slf4k
 import com.gardilily.vespercenter.utils.toHashMapWithKeysEvenNull
+import com.gardilily.vespercenter.utils.toHashMapWithNulls
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.Parameters
@@ -254,10 +257,7 @@ class SeatController @Autowired constructor(
     }
 
 
-    /**
-     *
-     * todo: 分页查询
-     */
+
     @Operation(
         summary = "获取主机列表。",
         description = "传入 groupId 以启用群组模式。<br/>" +
@@ -270,33 +270,28 @@ class SeatController @Autowired constructor(
         @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
         @RequestParam groupId: Long?,
         @RequestParam alsoSeatsInNonGroupMode: Boolean?,
-        @RequestParam viewAllSeatsInGroup: Boolean?
-    ): IResponse<List<Any?>> {
+        @RequestParam viewAllSeatsInGroup: Boolean?,
+        @RequestParam pageNo: Long = 1,
+        @RequestParam pageSize: Long = 20,
+        @RequestParam search: String = ""
+    ): IResponse< PagedResult<*> > {
         val userId = ticket.userId
+        val searchKeywords = search.split(" ").filter { it.isNotBlank() }
 
-        val res = HashMap<Long, Any?>()  // id -> entity
-
-        fun addToRes(list: List<SeatEntity>) {
-            list.forEach { it ->
-                val id = it.id!!
-                val entity = it
-
-                if (res.contains(id)) {
-                    return@forEach
-                }
-
-                val map = entity.toHashMapWithKeysEvenNull(
-                    SeatEntity::id, SeatEntity::userId, SeatEntity::creator, SeatEntity::nickname,
-                    SeatEntity::seatEnabled, SeatEntity::groupId, SeatEntity::note,
-                    SeatEntity::linuxUid, SeatEntity::linuxLoginName, SeatEntity::createTime,
-                    SeatEntity::lastLoginTime, SeatEntity::linuxPasswdRaw
-                )
-
-                map["username"] = userService.getById(entity.userId)?.username  // todo: 待优化
-                res[id] = map
-
-            }
-        } // fun addToRes
+        val query = KtQueryWrapper(SeatEntity::class.java).select(
+            SeatEntity::id,
+            SeatEntity::userId,
+            SeatEntity::creator,
+            SeatEntity::nickname,
+            SeatEntity::seatEnabled,
+            SeatEntity::groupId,
+            SeatEntity::note,
+            SeatEntity::linuxUid,
+            SeatEntity::linuxLoginName,
+            SeatEntity::createTime,
+            SeatEntity::lastLoginTime,
+            SeatEntity::linuxPasswdRaw
+        )
 
 
         // 群组模式。
@@ -311,67 +306,90 @@ class SeatController @Autowired constructor(
             }
 
             if (viewAllSeatsInGroup != null && viewAllSeatsInGroup) {
-                addToRes(
-                    seatService.baseMapper.selectList(
-                        KtQueryWrapper(SeatEntity::class.java)
-                            .eq(SeatEntity::groupId, groupId)
-                    )
-                )
+
+                query.eq(SeatEntity::groupId, groupId)
 
             } else {
                 // 仅查看自己可以管理的。
 
                 if (groupPermissionService.checkPermission(ticket.userId, groupId, GroupPermission.LOGIN_TO_ANY_SEAT)) {
-                    addToRes(
-                        seatService.baseMapper.selectList(
-                            KtQueryWrapper(SeatEntity::class.java)
-                                .eq(SeatEntity::groupId, groupId)
-                        )
-                    )
+
+                    query.eq(SeatEntity::groupId, groupId)
                 } else {
-                    addToRes(
-                        seatService.baseMapper.selectList(
-                            KtQueryWrapper(SeatEntity::class.java)
-                                .eq(SeatEntity::groupId, groupId)
-                                .eq(SeatEntity::userId, ticket.userId)
-                        )
-                    )
+
+                    query.eq(SeatEntity::groupId, groupId)
+                        .eq(SeatEntity::userId, ticket.userId)
                 }
 
             }
 
-            if (alsoSeatsInNonGroupMode == null || !alsoSeatsInNonGroupMode) {
-                return IResponse.ok(res.map { it.value })
-            }
         } // if (groupId != null)
 
 
-        // 无群组模式
 
-        // 我的 seat
-        val mySeats = seatService.baseMapper.selectList(
-            KtQueryWrapper(SeatEntity::class.java)
-                .eq(SeatEntity::userId, userId)
-        )
-        addToRes(mySeats)
+        if (groupId == null || alsoSeatsInNonGroupMode == true) {
+            // 无群组模式
 
-        // 我管理的全局 seat
-        if (permissionService.checkPermission(userId, Permission.CREATE_SEAT)) {
-            val myManageSeats = seatService.baseMapper.selectList(
-                KtQueryWrapper(SeatEntity::class.java)
-                    .eq(SeatEntity::creator, userId)
-            )
-            addToRes(myManageSeats)
+            // 如果我有管理全部 seat 的权限...
+            val iCanViewAllSeats = permissionService.checkPermission(userId, Permission.DELETE_ANY_SEAT)
+                    || permissionService.checkPermission(userId, Permission.NAME_ANY_SEAT)
+                    || permissionService.checkPermission(userId, Permission.LOGIN_TO_ANY_SEAT)
+
+            if (iCanViewAllSeats) {
+                if (groupId == null) {
+                    // without modifying query, we can see all things.
+                } else {
+                    query.or {
+                        it.ne(SeatEntity::id, -1)  // means select all
+                    }
+                }
+            } else {
+
+                // 我的 seat
+                if (groupId == null)
+                    query.eq(SeatEntity::userId, userId)
+                else
+                    query.or { it.eq(SeatEntity::userId, userId) }
+
+                // 我管理的全局 seat
+                if (permissionService.checkPermission(userId, Permission.CREATE_SEAT)) {
+
+                    query.or {
+                        it.eq(SeatEntity::creator, userId)
+                    }
+
+                }
+            }
         }
 
-        // 如果我有管理全部 seat 的权限...
-        if (permissionService.checkPermission(userId, Permission.DELETE_ANY_SEAT)
-            || permissionService.checkPermission(userId, Permission.NAME_ANY_SEAT)) {
 
-            addToRes(seatService.baseMapper.selectList(KtQueryWrapper(SeatEntity::class.java)))
+        if (searchKeywords.isNotEmpty()) {
+
+            searchKeywords.forEachIndexed { idx, str ->
+                query.like(SeatEntity::nickname, str)
+            }
+
         }
 
-        return IResponse.ok(res.map { it.value!! })
+
+        val pageParams = Page<SeatEntity>(pageNo, pageSize)
+        val dataPage = seatService.baseMapper.selectPage(pageParams, query)
+
+        val list = dataPage.records.map {
+            val map = it.toHashMapWithNulls()
+            map["username"] = userService.getById(it.userId)?.username
+            map["groupname"] = if (it.groupId == null)
+                "无群组"
+            else {
+                userGroupService.getById(it.groupId).groupName
+            }
+
+            map
+        }
+
+
+        val pagedResult = PagedResult(list, pageNo = dataPage.current, pageSize = dataPage.size, total = dataPage.total)
+        return IResponse.ok(pagedResult)
     }
 
 
