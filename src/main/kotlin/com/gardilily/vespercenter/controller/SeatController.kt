@@ -273,8 +273,10 @@ class SeatController @Autowired constructor(
         @RequestParam viewAllSeatsInGroup: Boolean?,
         @RequestParam pageNo: Long = 1,
         @RequestParam pageSize: Long = 20,
+        @RequestParam search: String = ""
     ): IResponse< PagedResult<*> > {
         val userId = ticket.userId
+        val searchKeywords = search.split(" ").filter { it.isNotBlank() }
 
         val query = KtQueryWrapper(SeatEntity::class.java).select(
             SeatEntity::id,
@@ -361,15 +363,30 @@ class SeatController @Autowired constructor(
         }
 
 
+        if (searchKeywords.isNotEmpty()) {
+
+            searchKeywords.forEachIndexed { idx, str ->
+                query.like(SeatEntity::nickname, str)
+            }
+
+        }
+
+
         val pageParams = Page<SeatEntity>(pageNo, pageSize)
         val dataPage = seatService.baseMapper.selectPage(pageParams, query)
 
         val list = dataPage.records.map {
             val map = it.toHashMapWithNulls()
             map["username"] = userService.getById(it.userId)?.username
+            map["groupname"] = if (it.groupId == null)
+                "无群组"
+            else {
+                userGroupService.getById(it.groupId).groupName
+            }
 
             map
         }
+
 
         val pagedResult = PagedResult(list, pageNo = dataPage.current, pageSize = dataPage.size, total = dataPage.total)
         return IResponse.ok(pagedResult)
