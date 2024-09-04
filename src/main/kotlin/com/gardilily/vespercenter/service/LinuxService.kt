@@ -201,6 +201,49 @@ class LinuxService @Autowired constructor(
             }
 
 
+            fun pgrep(
+                u: String? = null,
+                f: String? = null,
+                x: Boolean = false,
+                paimon: String? = null
+            ): List<String> {
+                val cmd = StringBuilder("pgrep")
+
+                if (u != null) {
+                    cmd.append(" -u $u")
+                }
+
+                if (f != null) {
+                    cmd.append(" -f \"${f.replace("\"", "\\\"")}\"")
+                }
+
+                if (x) {
+                    cmd.append(" -x")
+                }
+
+                if (paimon != null) {
+                    cmd.append(" $paimon")
+                }
+
+
+                val p = getProcessBuilder(cmd).start()
+
+                val processIdList = ArrayList<String>()
+                p.useIO { reader, writer ->
+                    reader.readLines()
+                        .toList()
+                        .filter { it.isNotBlank() }
+                        .forEach {
+                            val list = it.split(" ").filter { it.isNotBlank() }
+                            processIdList += list
+                        }
+                }
+
+
+                return processIdList
+            }
+
+
             fun free(): Pair<List<Long>, List<Long>> {
                 val cmd = StringBuilder("free -b")
                 val p = getProcessBuilder(cmd).start()
@@ -432,6 +475,25 @@ class LinuxService @Autowired constructor(
 
     fun isLoggedIn(seat: SeatEntity) = isLoggedIn(seat.linuxLoginName!!)
 
+    fun getProcessList(
+        executableName: String? = null,
+        username: String? = null,
+        uid: Int? = null,
+        seat: SeatEntity? = null,
+    ): List<String> {
+
+        val user = if (username != null) {
+            username
+        } else if (seat != null) {
+            seat.linuxLoginName!!
+        } else if (uid != null) {
+            uid.toString()
+        } else
+            null
+
+        val res = Shell.pgrep(x = true, u = user, paimon = executableName)
+        return res
+    }
 
     fun loginToUser(uid: Int): Int {
         val res = Shell.machinectlShell(uid)

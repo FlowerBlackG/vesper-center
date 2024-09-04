@@ -1,4 +1,12 @@
+version  tag  : 1.4.1
+version  code : 13
+complete time : 2024-09-04T13:37+08:00
+update   log  :
 
+Fix the issue of not having sufficient privileges when accessing the vesper ctrl and vesper launcher control sockets.
+Improve the accuracy of detecting the running status of vesper and vesper launcher.
+
+--------------------------------
 version  tag  : 1.4.0
 version  code : 12
 complete time : 2024-08-30T17:00+08:00

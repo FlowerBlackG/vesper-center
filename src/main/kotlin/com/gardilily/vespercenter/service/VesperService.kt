@@ -20,6 +20,7 @@ import java.net.UnixDomainSocketAddress
 import java.nio.ByteBuffer
 import java.nio.channels.SocketChannel
 import java.nio.file.Path
+import kotlin.io.path.absolutePathString
 
 @Service
 @Slf4k
@@ -91,6 +92,8 @@ class VesperService @Autowired constructor(
     fun send(request: VesperProtocol, socketPath: Path): VesperProtocol? {
         val address = UnixDomainSocketAddress.of(socketPath)
 
+        linuxService.unlockFileAccess(socketPath.absolutePathString())
+
         SocketChannel.open(StandardProtocolFamily.UNIX).use { sc ->
 
             // 发送请求
@@ -127,16 +130,20 @@ class VesperService @Autowired constructor(
 
 
     fun isVesperLauncherLive(linuxUid: Int): Boolean {
-        linuxService.unlockTmpfsAccess(linuxUid)
-        return File("${linuxService.xdgRuntimeDirOf(linuxUid)}/${MacroDefines.Vesper.LAUNCHER_SOCK}").exists()
+        return linuxService.getProcessList(
+            executableName = "vesper-launcher",
+            uid = linuxUid
+        ).isNotEmpty()
     }
 
 
     fun isVesperLauncherLive(seat: SeatEntity) = isVesperLauncherLive(seat.linuxUid!!)
 
     fun isVesperLive(linuxUid: Int): Boolean {
-        linuxService.unlockTmpfsAccess(linuxUid)
-        return File("${linuxService.xdgRuntimeDirOf(linuxUid)}/${MacroDefines.Vesper.CONTROL_SOCK}").exists()
+        return linuxService.getProcessList(
+            executableName = "vesper",
+            uid = linuxUid
+        ).isNotEmpty()
     }
 
     fun isVesperLive(seat: SeatEntity) = isVesperLive(seat.linuxUid!!)
