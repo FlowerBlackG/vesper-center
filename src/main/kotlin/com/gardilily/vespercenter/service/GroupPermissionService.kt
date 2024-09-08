@@ -27,8 +27,8 @@ class GroupPermissionService @Autowired constructor(
 
 
     fun ensurePermission(
-        uid: Long,
-        gid: Long,
+        uid: Long?,
+        gid: Long?,
         permission: GroupPermissionEntity.GroupPermission
     ) {
         if (!checkPermission(uid, gid, permission)) {
@@ -39,7 +39,7 @@ class GroupPermissionService @Autowired constructor(
 
     fun ensurePermission(
         ticket: SessionManager.Ticket,
-        gid: Long,
+        gid: Long?,
         permission: GroupPermissionEntity.GroupPermission
     ) {
         ensurePermission(ticket.userId, gid, permission)
@@ -47,39 +47,42 @@ class GroupPermissionService @Autowired constructor(
 
 
     fun ensurePermission(
-        entity: UserEntity,
-        gid: Long,
+        entity: UserEntity?,
+        gid: Long?,
         permission: GroupPermissionEntity.GroupPermission
     ) {
-        ensurePermission(entity.id!!, gid, permission)
+        ensurePermission(entity?.id, gid, permission)
     }
 
 
 
     fun ensurePermission(
-        entity: UserEntity,
-        group: UserGroupEntity,
+        entity: UserEntity?,
+        group: UserGroupEntity?,
         permission: GroupPermissionEntity.GroupPermission
     ) {
-        ensurePermission(entity.id!!, group.id!!, permission)
+        ensurePermission(entity?.id, group?.id, permission)
     }
 
 
     fun ensurePermission(
-        uid: Long,
-        group: UserGroupEntity,
+        uid: Long?,
+        group: UserGroupEntity?,
         permission: GroupPermissionEntity.GroupPermission
     ) {
-        ensurePermission(uid, group.id!!, permission)
+        ensurePermission(uid, group?.id, permission)
     }
 
 
 
     fun checkPermission(
-        uid: Long,
-        gid: Long,
+        uid: Long?,
+        gid: Long?,
         permission: GroupPermissionEntity.GroupPermission
     ): Boolean {
+        if (gid == null || uid == null)
+            return false
+
         groupPermissionGrantMapper.selectOne(
             KtQueryWrapper(GroupPermissionGrantEntity::class.java)
                 .eq(GroupPermissionGrantEntity::permissionId, permission)
@@ -91,31 +94,31 @@ class GroupPermissionService @Autowired constructor(
     }
 
     fun checkPermission(
-        entity: UserEntity,
-        gid: Long,
+        entity: UserEntity?,
+        gid: Long?,
         permission: GroupPermissionEntity.GroupPermission
-    ) = checkPermission(entity.id!!, gid, permission)
+    ) = checkPermission(entity?.id, gid, permission)
 
 
     fun checkPermission(
         ticket: SessionManager.Ticket,
-        gid: Long,
+        gid: Long?,
         permission: GroupPermissionEntity.GroupPermission
     ) = checkPermission(ticket.userId, gid, permission)
 
 
     fun checkPermission(
-        uid: Long,
-        group: UserGroupEntity,
+        uid: Long?,
+        group: UserGroupEntity?,
         permission: GroupPermissionEntity.GroupPermission
-    ) = checkPermission(uid, group.id!!, permission)
+    ) = checkPermission(uid, group?.id, permission)
 
 
     fun checkPermission(
-        user: UserEntity,
-        group: UserGroupEntity,
+        user: UserEntity?,
+        group: UserGroupEntity?,
         permission: GroupPermissionEntity.GroupPermission
-    ) = checkPermission(user.id!!, group.id!!, permission)
+    ) = checkPermission(user?.id, group?.id, permission)
 
 
     fun clearAllPermissions(

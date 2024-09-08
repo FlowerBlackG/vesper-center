@@ -31,10 +31,15 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.Parameters
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.bind.annotation.*
+import java.io.File
 import java.net.ServerSocket
+import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermissions
 import java.sql.Timestamp
 import java.util.UUID
+import kotlin.io.path.Path
 
 @RestController
 @RequestMapping("seat")
@@ -860,6 +865,172 @@ class SeatController @Autowired constructor(
                 seatService.disable(body.seatId!!, alsoQuit = body.alsoQuit!!)
             }
         }
+
+        return IResponse.ok()
+    }
+
+
+    data class AddSSHKeyRequest(
+        val keys: List<String> = emptyList(),
+        val seatId: Long? = null
+    )
+
+    @PostMapping("sshKey")
+    fun addSSHKey(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestBody body: AddSSHKeyRequest
+    ): IResponse<Int> {
+
+        if (body.seatId == null)
+            return IResponse.error(msg = "需要seatId。")
+
+        val keys = body.keys.filter { it.isNotBlank() }.toMutableSet()
+        keys.forEach { key ->
+            key.forEach { ch ->
+                if (ch.code !in 32 .. 126) {
+                    return IResponse.error(msg = "检测到非法字符。")
+                }
+            }
+
+            if (!key.startsWith("ssh-rsa ") && !key.startsWith("ssh-ed25519 ")) {
+                return IResponse.error(msg = "存在不支持的公钥类型。只支持rsa和ed25519。")
+            }
+        }
+
+        val seat = seatService.getById(body.seatId) ?: return IResponse.error(msg = "没有这个seat。")
+
+
+        // check permission
+
+        if (seat.userId != ticket.userId) {
+            return IResponse.error(msg = "不是你的seat.")
+        }
+
+        if (seat.isDisabled()) {
+            return IResponse.error(msg = "seat被禁用。")
+        }
+
+
+        // create .ssh folder and authorized_keys file
+
+        val homeFolder = "/home/${seat.linuxLoginName}"
+        val sshFolder = "$homeFolder/.ssh"
+        val authorizedKeyFile = "$sshFolder/authorized_keys"
+
+        linuxService.unlockFileAccess(homeFolder)
+
+
+        // check file exists
+        if (Files.exists(Path(sshFolder))) {
+            if (!Files.isDirectory(Path(sshFolder))) {
+                return IResponse.error(msg = "~/.ssh不是文件夹！")
+            }
+        } else {  // .ssh not created
+            try {
+                val permission = PosixFilePermissions.fromString("rwx------")
+                Files.createDirectory(Path(sshFolder), PosixFilePermissions.asFileAttribute(permission))
+                LinuxService.Shell.chown(sshFolder, seat.linuxLoginName!!, seat.linuxLoginName!!, false)
+            } catch (_: Exception) {
+                return IResponse.error(msg = "无法创建.ssh文件夹。")
+            }
+        }
+
+        linuxService.unlockFileAccess(sshFolder)
+
+        if (Files.exists(Path(authorizedKeyFile))) {
+            if (!Files.isRegularFile(Path(authorizedKeyFile))) {
+                return IResponse.error(msg = "$authorizedKeyFile 不是标准文件！")
+            }
+        } else { // authorized_keys file not created
+            try {
+                val permission = PosixFilePermissions.fromString("rw-r--r--")
+                Files.createFile(Path(authorizedKeyFile), PosixFilePermissions.asFileAttribute(permission))
+                LinuxService.Shell.chown(authorizedKeyFile, seat.linuxLoginName!!, seat.linuxLoginName!!, false)
+            } catch (_: Exception) {
+                return IResponse.error(msg = "无法创建 authorized_keys 文件。")
+            }
+        }
+
+        linuxService.unlockFileAccess(authorizedKeyFile)
+
+        // remove duplicates
+
+        File(authorizedKeyFile).forEachLine { line ->
+            keys.remove(line)
+        }
+
+
+        // build append keys' content
+
+        val appendContent = StringBuilder()
+        keys.forEach { key ->
+            appendContent.appendLine(key)
+        }
+
+        val file = File(authorizedKeyFile)
+        file.appendText("\n")
+        file.appendText(appendContent.toString())
+
+        return IResponse.ok(keys.size)
+    }
+
+
+    data class ChangeGroupRequest(
+        val seatId: Long? = null,
+        val toGroup: Long? = null
+    )
+    @Transactional
+    @PostMapping("changeGroup")
+    fun changeGroup(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestBody body: ChangeGroupRequest
+    ): IResponse<Unit> {
+        if (body.seatId == null)
+            return IResponse.error(msg = "参数不全。")
+
+
+        val seat = seatService.getById(body.seatId) ?: return IResponse.error(msg = "没有这个seat。")
+
+
+        // ensure seat's owner is in target group
+        if (body.toGroup != null) {
+            val inGroupQuery = KtQueryWrapper(GroupMemberEntity::class.java)
+                .eq(GroupMemberEntity::userId, seat.userId!!)
+                .eq(GroupMemberEntity::groupId, body.toGroup)
+            if (groupMemberService.count(inGroupQuery) <= 0)
+                return IResponse.error(msg = "机主用户不在目标组内。")
+        }
+
+
+        // check permission
+        // you should be able to:
+        //   1. remove seat from original group
+        //   2. add seat to target group
+
+        // now, check permission '1'
+        if (permissionService.checkPermission(ticket, Permission.DELETE_ANY_SEAT)) {
+            // passed
+        } else if (groupPermissionService.checkPermission(ticket, seat.groupId, GroupPermission.CREATE_OR_DELETE_SEAT)) {
+            // passed
+        } else {
+            return IResponse.error(msg = "没有将seat从原组删除的权限。")
+        }
+
+        // now, check permission '2'
+        if (permissionService.checkPermission(ticket, Permission.CREATE_SEAT)) {
+            // passed
+        } else if (groupPermissionService.checkPermission(ticket, body.toGroup, GroupPermission.CREATE_OR_DELETE_SEAT)) {
+            // passed
+        } else {
+            return IResponse.error(msg = "没有在目标组创建seat的权限。")
+        }
+
+
+        // now, do the move.
+
+        seat.groupId = body.toGroup
+        seatService.updateById(seat)
+
 
         return IResponse.ok()
     }

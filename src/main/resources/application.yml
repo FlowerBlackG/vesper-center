@@ -1,9 +1,9 @@
 
 vesper-center:
   system:
-    version-name: 1.4.1
-    version-code: 13
-    build-time: 2024-09-04T13:37+08:00
+    version-name: 1.5.0
+    version-code: 14
+    build-time: 2024-09-08T18:43+08:00
   data-dir: ${VESPER_CENTER_DATA_DIR}
   session:
     token-expire-milliseconds: 3600000  # 60分钟
@@ -53,3 +53,9 @@ server:
 mybatis:
   configuration:
     map-underscore-to-camel-case: true
+
+mybatis-plus:
+  global-config:
+    db-config:
+      # IGNORED or NOT_NULL or NOT_EMPTY
+      update-strategy: IGNORED

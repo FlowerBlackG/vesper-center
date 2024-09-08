@@ -1,3 +1,21 @@
+version  tag  : 1.5.0
+version  code : 14
+complete time : 2024-09-08T18:43+08:00
+update   log  :
+
+Group Controller:
+  Admins can now view groups they are not a member of.
+  Fix the issue where group owners can be deleted.
+
+Seat Controller:
+  New API: Add SSH Key (post: seat/sshKey)
+  New API: Change Group (post: seat/changeGroup)
+
+Vesper Protocols:
+  Fix the issue of randomly insufficient permissions for Vesper control ports access.
+
+--------------------------------
+
 version  tag  : 1.4.1
 version  code : 13
 complete time : 2024-09-04T13:37+08:00

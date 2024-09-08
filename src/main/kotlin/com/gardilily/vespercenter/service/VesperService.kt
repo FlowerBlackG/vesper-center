@@ -92,6 +92,7 @@ class VesperService @Autowired constructor(
     fun send(request: VesperProtocol, socketPath: Path): VesperProtocol? {
         val address = UnixDomainSocketAddress.of(socketPath)
 
+        linuxService.unlockFileAccess(socketPath.parent.absolutePathString())
         linuxService.unlockFileAccess(socketPath.absolutePathString())
 
         SocketChannel.open(StandardProtocolFamily.UNIX).use { sc ->

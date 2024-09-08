@@ -38,7 +38,7 @@ class LinuxService @Autowired constructor(
         const val BASH = "/bin/bash"
     }
 
-    private class Shell private constructor() {
+    class Shell private constructor() {
         companion object {
 
             private fun getProcessBuilder(cmd: String): ProcessBuilder {
@@ -365,6 +365,21 @@ class LinuxService @Autowired constructor(
                 return getProcessBuilder(cmd).start().waitFor()
             }
 
+
+            fun chown(file: String, owner: String, group: String, recursive: Boolean): Int {
+                val cmd = StringBuilder()
+
+                cmd.append("sudo ")
+                cmd.append("chown")
+
+                if (recursive) {
+                    cmd.append(" -R")
+                }
+
+                cmd.append(" $owner:$group $file")
+                return getProcessBuilder(cmd).start().waitFor()
+            }
+
         } // companion object of private class Shell
     } // private class Shell
 
@@ -580,4 +595,5 @@ class LinuxService @Autowired constructor(
     fun shellTest(exp: String, sudo: Boolean): Int {
         return Shell.test(exp, sudo = sudo)
     }
+
 }

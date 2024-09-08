@@ -412,7 +412,13 @@ class GroupController @Autowired constructor(
             )
         }
 
-        // todo: 还需添加的功能：管理员看自己不在的组
+
+        val canViewAllGroups = permissionService.checkPermission(ticket.userId, Permission.MODIFY_ANY_GROUP_MEMBERS_PERMISSION)
+
+        if (canViewAllGroups) {
+            val query = KtQueryWrapper(UserGroupEntity::class.java)
+            addToRes(userGroupMapper.selectList(query))
+        }
 
         return IResponse.ok(res.map { it.value!! })
     }
@@ -434,6 +440,12 @@ class GroupController @Autowired constructor(
         // check permission
 
         groupPermissionService.ensurePermission(ticket, body.groupId, GroupPermission.ADD_OR_REMOVE_USER)
+
+        if (body.userId == ticket.userId)
+            return IResponse.error(msg = "不许删自己。")
+
+        if (groupPermissionService.checkPermission(body.userId, body.groupId, GroupPermission.GRANT_PERMISSION))
+            return IResponse.error(msg = "不许删群主。")
 
         // do the job
 
