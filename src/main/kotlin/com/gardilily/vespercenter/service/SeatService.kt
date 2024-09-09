@@ -16,6 +16,7 @@ import com.gardilily.vespercenter.entity.GroupPermissionEntity
 import com.gardilily.vespercenter.entity.PermissionEntity
 import com.gardilily.vespercenter.entity.SeatEntity
 import com.gardilily.vespercenter.entity.UserEntity
+import com.gardilily.vespercenter.entity.UserGroupEntity
 import com.gardilily.vespercenter.mapper.SeatMapper
 import com.gardilily.vespercenter.properties.VesperCenterProperties
 import org.springframework.beans.factory.annotation.Autowired
@@ -190,6 +191,17 @@ class SeatService @Autowired constructor(
 
     fun enable(seats: List<SeatEntity>) {
         seats.forEach { enable(it.id!!) }
+    }
+
+
+    fun changeGroup(seat: SeatEntity, group: UserGroupEntity?) {
+        changeGroup(seat, group?.id)
+    }
+
+
+    fun changeGroup(seat: SeatEntity, groupId: Long?) {
+        seat.groupId = groupId
+        updateById(seat)
     }
 
 }

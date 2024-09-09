@@ -1,3 +1,16 @@
+version  tag  : 1.6.0
+version  code : 16
+complete time : 2024-09-09T17:33+08:00
+update   log  :
+
+New API: Move user from one group to another.
+
+Bugfix:
+  1. API seat/fixSSHPermission was not accessible.
+  2. Admin wasn't able to view groups they were not in.
+
+--------------------------------
+
 version  tag  : 1.5.1
 version  code : 15
 complete time : 2024-09-09T11:12+08:00

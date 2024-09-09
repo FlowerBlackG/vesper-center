@@ -1,9 +1,9 @@
 
 vesper-center:
   system:
-    version-name: 1.5.1
-    version-code: 15
-    build-time: 2024-09-09T11:12+08:00
+    version-name: 1.6.0
+    version-code: 16
+    build-time: 2024-09-09T17:33+08:00
   data-dir: ${VESPER_CENTER_DATA_DIR}
   session:
     token-expire-milliseconds: 3600000  # 60分钟

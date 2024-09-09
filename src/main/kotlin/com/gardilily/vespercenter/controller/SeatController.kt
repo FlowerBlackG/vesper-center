@@ -979,7 +979,7 @@ class SeatController @Autowired constructor(
 
     @PostMapping("fixSSHPermission")
     fun fixSSHPermission(
-        @SessionAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
         @RequestBody body: FixSSHPermissionRequest
     ): IResponse<Unit> {
         if (body.seatId == null)
@@ -1047,8 +1047,7 @@ class SeatController @Autowired constructor(
 
         // now, do the move.
 
-        seat.groupId = body.toGroup
-        seatService.updateById(seat)
+        seatService.changeGroup(seat, body.toGroup)
 
 
         return IResponse.ok()

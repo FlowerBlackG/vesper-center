@@ -135,7 +135,10 @@ class GroupController @Autowired constructor(
             GroupPermission.GRANT_PERMISSION -> return IResponse.error(msg = "不允许改动超级权限。")
 
             // 如果要赋予其他用户权限，自己必须拥有“赋权”权限。
-            else -> groupPermissionService.ensurePermission(userId, body.groupId!!, GroupPermission.GRANT_PERMISSION)
+            else -> {
+                if (!permissionService.checkPermission(ticket, Permission.MODIFY_ANY_GROUP_MEMBERS_PERMISSION))
+                    groupPermissionService.ensurePermission(userId, body.groupId!!, GroupPermission.GRANT_PERMISSION)
+            }
         }
 
         // 检查待赋权用户是否存在。
@@ -311,12 +314,18 @@ class GroupController @Autowired constructor(
         @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
         @RequestParam groupId: Long
     ): IResponse<List<Any>> {
-        // 检查在不在组内。
-        val existsQuery = KtQueryWrapper(GroupMemberEntity::class.java)
-            .eq(GroupMemberEntity::groupId, groupId)
-            .eq(GroupMemberEntity::userId, ticket.userId)
-        if ( !groupMemberService.exists(existsQuery) ) {
-            return IResponse.error(msg = "不在这个组里。")
+
+        if (permissionService.checkPermission(ticket, Permission.MODIFY_ANY_GROUP_MEMBERS_PERMISSION)) {
+            // permission check passed
+        } else {
+
+            // 检查在不在组内。
+            val existsQuery = KtQueryWrapper(GroupMemberEntity::class.java)
+                .eq(GroupMemberEntity::groupId, groupId)
+                .eq(GroupMemberEntity::userId, ticket.userId)
+            if (!groupMemberService.exists(existsQuery)) {
+                return IResponse.error(msg = "不在这个组里。")
+            }
         }
 
         val groupMemberEntities = groupMemberService.list(
@@ -475,6 +484,130 @@ class GroupController @Autowired constructor(
         )
 
         return IResponse.ok(res)
+    }
+
+
+    data class MoveUserRequest(
+        val userId: Long? = null,
+        val fromGroup: Long? = null,
+        val toGroup: Long? = null,
+        val deleteSeatsInsteadOfMove: Boolean = false,
+        /**
+         * When a user is already in the target group,
+         * this option determines how the API works.
+         *
+         * If set to true, the API will continue to perform
+         * seat migration and other tasks.
+         *
+         * Otherwise, the API will stop and return an error.
+         */
+        val ignoreUserAlreadyCreatedError: Boolean = false
+    )
+    @PostMapping("moveUser")
+    fun moveUser(
+        @RequestAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestBody body: MoveUserRequest
+    ): IResponse<Unit> {
+        // non-null check
+        if (body.userId == null || body.fromGroup == null || body.toGroup == null)
+            return IResponse.error()
+
+        if (body.fromGroup == body.toGroup)
+            return IResponse.error(msg = "原组和目标组相同。")
+
+        // check group and user existence
+        userGroupService.getById(body.toGroup) ?: return IResponse.error(msg = "目标组不存在。")
+        do {
+            val query = KtQueryWrapper(GroupMemberEntity::class.java)
+                .eq(GroupMemberEntity::userId, body.userId)
+                .eq(GroupMemberEntity::groupId, body.fromGroup)
+            if (!groupMemberService.exists(query))
+                return IResponse.error(msg = "用户不在原组。")
+        } while (false)
+
+        // don't move group owner
+        if (groupPermissionService.checkPermission(body.userId, body.fromGroup, GroupPermission.GRANT_PERMISSION))
+            return IResponse.error(msg = "群主不能走。")
+
+
+        val userInNewGroup = run {
+            val query = KtQueryWrapper(GroupMemberEntity::class.java)
+                .eq(GroupMemberEntity::userId, body.userId)
+                .eq(GroupMemberEntity::groupId, body.toGroup)
+            return@run groupMemberService.exists(query)
+        }
+
+        if (userInNewGroup && !body.ignoreUserAlreadyCreatedError)
+            return IResponse.error(msg = "目标组内已有该用户。")
+
+        // check permissions
+        //
+        // you should have the permission to:
+        //   1. remove user from old group
+        //   2. remove seat from old group
+        //   3. create user in new group (if user not exists)
+        //   4. create seats in new group (if not drop seats instead of move)
+
+        // now, check '1'
+        if (groupPermissionService.checkPermission(ticket, body.fromGroup, GroupPermission.ADD_OR_REMOVE_USER)) {
+            // passed
+        } else {
+            return IResponse.error(msg = "无权限。")
+        }
+
+        // check '2'
+        if (groupPermissionService.checkPermission(ticket, body.fromGroup, GroupPermission.CREATE_OR_DELETE_SEAT)) {
+            // passed
+        } else {
+            return IResponse.error(msg = "无权限。")
+        }
+
+        // check '3'
+        if (!userInNewGroup) {
+            if (groupPermissionService.checkPermission(ticket, body.toGroup, GroupPermission.ADD_OR_REMOVE_USER)) {
+                // passed
+            } else {
+                return IResponse.error(msg = "无权限。")
+            }
+        }
+
+
+        // check '4'
+        if (!body.deleteSeatsInsteadOfMove) {
+            if (groupPermissionService.checkPermission(ticket, body.toGroup, GroupPermission.CREATE_OR_DELETE_SEAT)) {
+                // passed
+            } else {
+                return IResponse.error(msg = "无权限。")
+            }
+        }
+
+        // move or drop seats
+        val seatsQuery = KtQueryWrapper(SeatEntity::class.java)
+            .eq(SeatEntity::userId, body.userId)
+            .eq(SeatEntity::groupId, body.fromGroup)
+        val seats = seatService.list(seatsQuery)
+        if (body.deleteSeatsInsteadOfMove) {
+            // delete
+            seats.forEach { seat ->
+                seatService.removeSeat(seat)
+            }
+        } else {
+            // move
+            seats.forEach { seat ->
+                seatService.changeGroup(seat, body.toGroup)
+            }
+        }
+
+        // delete user from original group
+        userGroupService.removeUserFromGroup(body.userId, body.fromGroup, alsoSeats = false)
+
+        // add user to new group
+        if (!userInNewGroup) {
+            groupMemberService.addUserToGroup(body.userId, body.toGroup)
+        }
+
+
+        return IResponse.ok()
     }
 
 }
