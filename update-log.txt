@@ -1,3 +1,14 @@
+version  tag  : 1.5.1
+version  code : 15
+complete time : 2024-09-09T11:12+08:00
+update   log  :
+
+Fixing the issue of uploading SSH keys breaking the SSH permission system.
+
+New API: Fix SSH Permission.
+
+--------------------------------
+
 version  tag  : 1.5.0
 version  code : 14
 complete time : 2024-09-08T18:43+08:00

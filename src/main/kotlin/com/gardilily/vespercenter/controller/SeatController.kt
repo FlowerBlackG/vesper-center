@@ -927,9 +927,7 @@ class SeatController @Autowired constructor(
             }
         } else {  // .ssh not created
             try {
-                val permission = PosixFilePermissions.fromString("rwx------")
-                Files.createDirectory(Path(sshFolder), PosixFilePermissions.asFileAttribute(permission))
-                LinuxService.Shell.chown(sshFolder, seat.linuxLoginName!!, seat.linuxLoginName!!, false)
+                Files.createDirectory(Path(sshFolder))
             } catch (_: Exception) {
                 return IResponse.error(msg = "无法创建.ssh文件夹。")
             }
@@ -943,9 +941,7 @@ class SeatController @Autowired constructor(
             }
         } else { // authorized_keys file not created
             try {
-                val permission = PosixFilePermissions.fromString("rw-r--r--")
-                Files.createFile(Path(authorizedKeyFile), PosixFilePermissions.asFileAttribute(permission))
-                LinuxService.Shell.chown(authorizedKeyFile, seat.linuxLoginName!!, seat.linuxLoginName!!, false)
+                Files.createFile(Path(authorizedKeyFile))
             } catch (_: Exception) {
                 return IResponse.error(msg = "无法创建 authorized_keys 文件。")
             }
@@ -971,9 +967,32 @@ class SeatController @Autowired constructor(
         file.appendText("\n")
         file.appendText(appendContent.toString())
 
+        linuxService.fixSSHPermission(seat)
+
         return IResponse.ok(keys.size)
     }
 
+
+    data class FixSSHPermissionRequest(
+        val seatId: Long? = null
+    )
+
+    @PostMapping("fixSSHPermission")
+    fun fixSSHPermission(
+        @SessionAttribute(SessionManager.SESSION_ATTR_KEY) ticket: SessionManager.Ticket,
+        @RequestBody body: FixSSHPermissionRequest
+    ): IResponse<Unit> {
+        if (body.seatId == null)
+            return IResponse.error()
+
+        val seat = seatService.getById(body.seatId) ?: return IResponse.error(msg = "没有这个seat.")
+
+        if (seat.userId != ticket.userId)
+            return IResponse.error(msg = "不是你的seat.")
+
+        linuxService.fixSSHPermission(seat)
+        return IResponse.ok()
+    }
 
     data class ChangeGroupRequest(
         val seatId: Long? = null,

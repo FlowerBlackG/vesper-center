@@ -380,6 +380,17 @@ class LinuxService @Autowired constructor(
                 return getProcessBuilder(cmd).start().waitFor()
             }
 
+
+            fun chmod(file: String, mode: String): Int {
+                val cmd = StringBuilder()
+                cmd.append("sudo ")
+                cmd.append("chmod")
+                cmd.append(" $mode")
+                cmd.append(" $file")
+
+                return getProcessBuilder(cmd).start().waitFor()
+            }
+
         } // companion object of private class Shell
     } // private class Shell
 
@@ -592,8 +603,26 @@ class LinuxService @Autowired constructor(
         Shell.mv(src = source, dst = target, sudo = true, force = true)
     }
 
+
     fun shellTest(exp: String, sudo: Boolean): Int {
         return Shell.test(exp, sudo = sudo)
+    }
+
+
+    fun fixSSHPermission(seat: SeatEntity) {
+        fixSSHPermission(seat.linuxLoginName!!)
+    }
+
+
+    fun fixSSHPermission(linuxLoginName: String) {
+        val home = "/home/$linuxLoginName"
+        val sshFolder = "$home/.ssh"
+        val authorizedKeysFile = "$sshFolder/authorized_keys"
+
+        Shell.chown(sshFolder, linuxLoginName, linuxLoginName, true)
+        Shell.chmod(home, "700")
+        Shell.chmod(sshFolder, "700")
+        Shell.chmod(authorizedKeysFile, "600")
     }
 
 }

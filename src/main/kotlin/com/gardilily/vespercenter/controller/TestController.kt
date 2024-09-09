@@ -4,6 +4,7 @@ package com.gardilily.vespercenter.controller
 
 import com.gardilily.vespercenter.dto.IResponse
 import com.gardilily.vespercenter.service.LinuxService
+import com.gardilily.vespercenter.service.SeatService
 import com.gardilily.vespercenter.service.VesperService
 import com.gardilily.vespercenter.service.vesperprotocol.VesperControlProtocols
 import jakarta.servlet.http.HttpServletResponse
@@ -18,8 +19,10 @@ import java.lang.management.ManagementFactory
 @RequestMapping("test")
 class TestController @Autowired constructor(
     val linuxService: LinuxService,
-    val vesperService: VesperService
+    val vesperService: VesperService,
+    val seatService: SeatService
 ) {
+
 
 
 }
